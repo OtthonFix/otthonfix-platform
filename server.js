@@ -292,14 +292,57 @@ app.post('/api/orders/:orderId/review', (req, res) => {
   });
 });
 
+// Email teszt endpoint (POST és GET)
 app.post('/api/email/test', async (req, res) => {
   const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: 'Email cím kötelező' });
+  }
   
   try {
     const result = await emailService.sendTest(email);
     res.json({ success: true, result });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET verzió böngészős teszteléshez
+app.get('/api/email/test', async (req, res) => {
+  const email = req.query.email || 'test@example.com';
+  
+  try {
+    const result = await emailService.sendTest(email);
+    res.json({ 
+      success: true, 
+      message: `Teszt email elküldve: ${email}`,
+      result 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// GET verzió böngészős teszteléshez
+app.get('/api/email/test', async (req, res) => {
+  const email = req.query.email || 'test@example.com';
+  
+  try {
+    const result = await emailService.sendTest(email);
+    res.json({ 
+      success: true, 
+      message: `Teszt email elküldve: ${email}`,
+      result 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 });
 
