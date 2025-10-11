@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f5f5f5;">
+  {{> header}}
+  
+  <div style="max-width:600px;margin:20px auto;background:#fff;padding:30px;border-radius:8px;">
+    <h2 style="color:#0A2540;margin-bottom:20px;">Köszönjük, hogy regisztráltál, {{first_name}}!</h2>
+    
+    <p style="color:#666;line-height:1.6;margin-bottom:20px;">Kérjük, aktiváld a fiókodat az alábbi gombbal:</p>
+    
+    {{> button url=activation_url text="Fiók aktiválása" color="#F5B93C"}}
+    
+    <p style="color:#999;font-size:14px;margin-top:30px;">Ez a link 24 órán belül érvényes.</p>
+    
+    <p style="color:#999;font-size:14px;margin-top:30px;">
+      Kérdésed van? <a href="mailto:{{support_email}}" style="color:#3DA9FC;">{{support_email}}</a>
+    </p>
+  </div>
+  
+  {{> footer}}
+</body>
+</html>

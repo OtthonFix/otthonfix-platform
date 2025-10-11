@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OtthonFix - Budapesti Szerelő Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #ffffff;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-dark: #1e293b;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --success: #10b981;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            cursor: pointer;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .home-screen {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .home-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .home-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+        }
+
+        .role-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .role-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            cursor: pointer;
+            transition: all 0.4s;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .role-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-blue));
+        }
+
+        .role-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border-color: var(--accent-gold);
+        }
+
+        .role-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .role-card h2 {
+            color: var(--text-dark);
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-card p {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        .form-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .form-card h2 {
+            color: var(--text-dark);
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-dark);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: #f8fafc;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            background: white;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .category-btn {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .category-btn:hover {
+            border-color: var(--accent-blue);
+            background: #eff6ff;
+            transform: scale(1.05);
+        }
+
+        .category-btn.active {
+            border-color: var(--accent-blue);
+            background: #eff6ff;
+        }
+
+        .category-btn .icon {
+            font-size: 2rem;
+        }
+
+        .category-btn span {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .list-header {
+            color: white;
+            margin-bottom: 2rem;
+            max-width: 1000px;
+            margin: 0 auto 2rem;
+        }
+
+        .list-header h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .list-header p {
+            color: var(--text-secondary);
+        }
+
+        .mechanic-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 2rem;
+            align-items: start;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .mechanic-card:hover {
+            transform: translateX(10px);
+            border-color: var(--accent-gold);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .mechanic-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            flex-shrink: 0;
+        }
+
+        .mechanic-info {
+            flex: 1;
+        }
+
+        .mechanic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+
+        .mechanic-name {
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .mechanic-specialty {
+            color: #64748b;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .mechanic-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mechanic-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-primary {
+            flex: 1;
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-secondary {
+            padding: 0.875rem 1.5rem;
+            background: white;
+            border: 2px solid var(--accent-blue);
+            border-radius: 10px;
+            color: var(--accent-blue);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .match-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 600px;
+            margin: 4rem auto;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .match-card h2 {
+            color: var(--text-dark);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .match-card p {
+            color: #64748b;
+            font-size: 1.125rem;
+            margin-bottom: 2rem;
+        }
+
+        .matched-mechanic {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .matched-avatar {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .match-details {
+            text-align: left;
+            margin: 1.5rem 0;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-dark);
+        }
+
+        .chat-screen {
+            max-width: 800px;
+            margin: 2rem auto;
+            height: calc(100vh - 200px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .chat-avatar {
+            font-size: 2.5rem;
+        }
+
+        .chat-user-info h3 {
+            color: var(--text-dark);
+            font-size: 1.25rem;
+        }
+
+        .chat-user-info p {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            background: var(--bg-card);
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+        }
+
+        .message-received {
+            background: #f1f5f9;
+            color: var(--text-dark);
+            align-self: flex-start;
+            border-radius: 16px 16px 16px 4px;
+        }
+
+        .message-sent {
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            color: white;
+            align-self: flex-end;
+            border-radius: 16px 16px 4px 16px;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+
+        .chat-input {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 0 0 16px 16px;
+            display: flex;
+            gap: 1rem;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 1rem;
+            background: #f8fafc;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .send-btn {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            .home-title {
+                font-size: 2.5rem;
+            }
+            
+            .role-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .category-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .mechanic-card {
+                flex-direction: column;
+            }
+
+            .mechanic-stats {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo" onclick="showScreen('home')">OtthonFix</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Home Screen -->
+        <div id="home" class="screen active">
+            <div class="home-screen">
+                <h1 class="home-title">OtthonFix</h1>
+                <p class="home-subtitle">Budapesti szerelők és ügyfelek találkozóhelye - valós időben</p>
+                
+                <div class="role-cards">
+                    <div class="role-card" onclick="showScreen('mechanic-form')">
+                        <div class="role-icon">🔧</div>
+                        <h2>Szerelő vagyok</h2>
+                        <p>Regisztrálj és kezdj el dolgozni új ügyfelekkel</p>
+                    </div>
+                    
+                    <div class="role-card" onclick="showScreen('client-form')">
+                        <div class="role-icon">👤</div>
+                        <h2>Szerelőt keresek</h2>
+                        <p>Találj szakembert perceken belül a problémádra</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mechanic Registration -->
+        <div id="mechanic-form" class="screen">
+            <button class="back-btn" onclick="showScreen('home')">← Vissza</button>
+            <div class="form-card">
+                <h2>Szerelő regisztráció</h2>
+                <form id="mechanicForm">
+                    <div class="form-group">
+                        <label>Teljes név *</label>
+                        <input type="text" id="mechanic-name" required placeholder="pl. Kovács János">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email cím *</label>
+                        <input type="email" id="mechanic-email" required placeholder="kovacs@email.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Telefonszám *</label>
+                        <input type="tel" id="mechanic-phone" required placeholder="+36 20 123 4567">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Szakterület (választható több is) *</label>
+                        <div class="category-grid">
+                            <div class="category-btn" data-category="water" onclick="toggleCategory(this)">
+                                <span class="icon">💧</span>
+                                <span>Vízszerelés</span>
+                            </div>
+                            <div class="category-btn" data-category="electric" onclick="toggleCategory(this)">
+                                <span class="icon">⚡</span>
+                                <span>Villanyszerelés</span>
+                            </div>
+                            <div class="category-btn" data-category="heating" onclick="toggleCategory(this)">
+                                <span class="icon">🔥</span>
+                                <span>Fűtés</span>
+                            </div>
+                            <div class="category-btn" data-category="lock" onclick="toggleCategory(this)">
+                                <span class="icon">🔐</span>
+                                <span>Zárjavítás</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Óradíj (Ft) *</label>
+                        <input type="number" id="mechanic-rate" required placeholder="8000">
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Regisztráció</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Client Form -->
+        <div id="client-form" class="screen">
+            <button class="back-btn" onclick="showScreen('home')">← Vissza</button>
+            <div class="form-card">
+                <h2>Milyen problémád van?</h2>
+                <form id="clientForm">
+                    <div class="form-group">
+                        <label>Válaszd ki a szolgáltatást *</label>
+                        <div class="category-grid">
+                            <div class="category-btn" data-category="water" onclick="selectCategory(this)">
+                                <span class="icon">💧</span>
+                                <span>Vízszerelés</span>
+                            </div>
+                            <div class="category-btn" data-category="electric" onclick="selectCategory(this)">
+                                <span class="icon">⚡</span>
+                                <span>Villanyszerelés</span>
+                            </div>
+                            <div class="category-btn" data-category="heating" onclick="selectCategory(this)">
+                                <span class="icon">🔥</span>
+                                <span>Fűtés</span>
+                            </div>
+                            <div class="category-btn" data-category="lock" onclick="selectCategory(this)">
+                                <span class="icon">🔐</span>
+                                <span>Zárjavítás</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Rövid leírás *</label>
+                        <input type="text" id="client-description" required placeholder="pl. A csap folyamatosan csöpög...">
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Keresés indítása</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Mechanic List -->
+        <div id="mechanic-list" class="screen">
+            <button class="back-btn" onclick="showScreen('client-form')">← Vissza</button>
+            <div class="list-header">
+                <h2>Elérhető szerelők a közeledben</h2>
+                <p>Válassz a szakemberek közül, akik jelenleg online vannak</p>
+            </div>
+            
+            <div class="mechanic-card">
+                <div class="mechanic-avatar">👨‍🔧</div>
+                <div class="mechanic-info">
+                    <div class="mechanic-header">
+                        <div>
+                            <div class="mechanic-name">Kovács János</div>
+                            <div class="mechanic-specialty">Vízszerelő mester</div>
+                        </div>
+                        <span class="status-badge">🟢 Online</span>
+                    </div>
+                    
+                    <div class="mechanic-stats">
+                        <div class="stat-item">
+                            <span>⭐</span>
+                            <span><strong>4.9</strong> (127 értékelés)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>📍</span>
+                            <span><strong>1.2 km</strong> távolság</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>💰</span>
+                            <span><strong>8,000 Ft/óra</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mechanic-actions">
+                        <button class="btn-primary" onclick="selectMechanic('Kovács János', '👨‍🔧')">
+                            <span>💬</span>
+                            <span>Választom</span>
+                        </button>
+                        <button class="btn-secondary">📞 Hívás</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mechanic-card">
+                <div class="mechanic-avatar">⚡</div>
+                <div class="mechanic-info">
+                    <div class="mechanic-header">
+                        <div>
+                            <div class="mechanic-name">Nagy Péter</div>
+                            <div class="mechanic-specialty">Villanyszerelő</div>
+                        </div>
+                        <span class="status-badge">🟢 Online</span>
+                    </div>
+                    
+                    <div class="mechanic-stats">
+                        <div class="stat-item">
+                            <span>⭐</span>
+                            <span><strong>4.8</strong> (203 értékelés)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>📍</span>
+                            <span><strong>2.1 km</strong> távolság</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>💰</span>
+                            <span><strong>9,500 Ft/óra</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mechanic-actions">
+                        <button class="btn-primary" onclick="selectMechanic('Nagy Péter', '⚡')">
+                            <span>💬</span>
+                            <span>Választom</span>
+                        </button>
+                        <button class="btn-secondary">📞 Hívás</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mechanic-card">
+                <div class="mechanic-avatar">🔥</div>
+                <div class="mechanic-info">
+                    <div class="mechanic-header">
+                        <div>
+                            <div class="mechanic-name">Tóth András</div>
+                            <div class="mechanic-specialty">Fűtésszerelő</div>
+                        </div>
+                        <span class="status-badge">🟢 Online</span>
+                    </div>
+                    
+                    <div class="mechanic-stats">
+                        <div class="stat-item">
+                            <span>⭐</span>
+                            <span><strong>4.7</strong> (89 értékelés)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>📍</span>
+                            <span><strong>3.5 km</strong> távolság</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>💰</span>
+                            <span><strong>7,500 Ft/óra</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mechanic-actions">
+                        <button class="btn-primary" onclick="selectMechanic('Tóth András', '🔥')">
+                            <span>💬</span>
+                            <span>Választom</span>
+                        </button>
+                        <button class="btn-secondary">📞 Hívás</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Match Screen -->
+        <div id="match" class="screen">
+            <div class="match-card">
+                <div class="success-icon">✓</div>
+                <h2>Sikeres párosítás!</h2>
+                <p id="match-text">Kovács János szerelő elfogadta a kérésedet</p>
+                
+                <div class="matched-mechanic">
+                    <div class="matched-avatar" id="matched-avatar">👨‍🔧</div>
+                    <div class="mechanic-name" id="matched-name">Kovács János</div>
+                    <div class="mechanic-specialty">Vízszerelő mester</div>
+                    
+                    <div class="match-details">
+                        <div class="detail-row">
+                            <span>⭐</span>
+                            <span>4.9 értékelés (127 vélemény)</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>📍</span>
+                            <span>1.2 km távolságra van</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>⏱️</span>
+                            <span>Becsült érkezés: 15 perc</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mechanic-actions">
+                        <button class="btn-primary" onclick="showScreen('chat')">
+                            <span>💬</span>
+                            <span>Chat indítása</span>
+                        </button>
+                        <button class="btn-secondary">📞 Hívás</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat" class="screen">
+            <button class="back-btn" onclick="showScreen('match')">← Vissza</button>
+            
+            <div class="chat-screen">
+                <div class="chat-header">
+                    <div class="chat-avatar" id="chat-avatar">👨‍🔧</div>
+                    <div class="chat-user-info">
+                        <h3 id="chat-name">Kovács János</h3>
+                        <p>🟢 Online</p>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message message-received">
+                        <div>Szia! Megkaptam a hívást. Pontosan mi a probléma?</div>
+                        <div class="message-time">10:23</div>
+                    </div>
+                    
+                    <div class="message message-sent">
+                        <div>A fürdőszoba csapja folyamatosan csöpög.</div>
+                        <div class="message-time">10:24</div>
+                    </div>
+                    
+                    <div class="message message-received">
+                        <div>Értem. 15 percen belül ott leszek. Kell hoznom cserealkatrészt?</div>
+                        <div class="message-time">10:25</div>
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <input type="text" id="message-input" placeholder="Írj üzenetet..." onkeypress="handleEnter(event)">
+                    <button class="send-btn" onclick="sendMessage()">Küldés</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Screen (Registration) -->
+        <div id="success" class="screen">
+            <div class="match-card">
+                <div class="success-icon">✓</div>
+                <h2>Sikeres regisztráció!</h2>
+                <p id="success-text">Köszönjük a regisztrációt. Hamarosan aktiválódik a profilod.</p>
+                <button class="submit-btn" onclick="showScreen('home')">Vissza a főoldalra</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedCategories = [];
+        let selectedClientCategory = null;
+        let currentMechanic = { name: 'Kovács János', avatar: '👨‍🔧' };
+
+        function showScreen(screenId) {
+            console.log('Navigálás:', screenId);
+            const screens = document.querySelectorAll('.screen');
+            screens.forEach(screen => screen.classList.remove('active'));
+            
+            const targetScreen = document.getElementById(screenId);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+            }
+        }
+
+        function toggleCategory(element) {
+            element.classList.toggle('active');
+            const category = element.getAttribute('data-category');
+            
+            if (element.classList.contains('active')) {
+                if (!selectedCategories.includes(category)) {
+                    selectedCategories.push(category);
+                }
+            } else {
+                selectedCategories = selectedCategories.filter(c => c !== category);
+            }
+            
+            console.log('Kiválasztott kategóriák:', selectedCategories);
+        }
+
+        function selectCategory(element) {
+            const allButtons = document.querySelectorAll('#client-form .category-btn');
+            allButtons.forEach(btn => btn.classList.remove('active'));
+            
+            element.classList.add('active');
+            selectedClientCategory = element.getAttribute('data-category');
+            
+            console.log('Kiválasztott kategória:', selectedClientCategory);
+        }
+
+        function selectMechanic(name, avatar) {
+            console.log('Szerelő kiválasztva:', name);
+            currentMechanic = { name, avatar };
+            
+            document.getElementById('match-text').textContent = `${name} szerelő elfogadta a kérésedet`;
+            document.getElementById('matched-name').textContent = name;
+            document.getElementById('matched-avatar').textContent = avatar;
+            document.getElementById('chat-name').textContent = name;
+            document.getElementById('chat-avatar').textContent = avatar;
+            
+            showScreen('match');
+        }
+
+        document.getElementById('mechanicForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Szerelő regisztráció submit');
+            
+            const name = document.getElementById('mechanic-name').value;
+            const email = document.getElementById('mechanic-email').value;
+            const phone = document.getElementById('mechanic-phone').value;
+            const rate = document.getElementById('mechanic-rate').value;
+            
+            if (selectedCategories.length === 0) {
+                alert('Kérlek válassz legalább egy szakterületet!');
+                return;
+            }
+            
+            console.log('Regisztráció adatok:', { name, email, phone, rate, categories: selectedCategories });
+            
+            document.getElementById('success-text').textContent = 
+                `Köszönjük ${name}! A regisztrációdat feldolgoztuk. Hamarosan aktiválódik a profilod.`;
+            
+            showScreen('success');
+            
+            document.getElementById('mechanicForm').reset();
+            selectedCategories = [];
+            const allButtons = document.querySelectorAll('#mechanic-form .category-btn');
+            allButtons.forEach(btn => btn.classList.remove('active'));
+        });
+
+        document.getElementById('clientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Ügyfél keresés submit');
+            
+            const description = document.getElementById('client-description').value;
+            
+            if (!selectedClientCategory) {
+                alert('Kérlek válassz egy kategóriát!');
+                return;
+            }
+            
+            console.log('Keresés adatok:', { category: selectedClientCategory, description });
+            
+            showScreen('mechanic-list');
+        });
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (message === '') return;
+            
+            const messagesContainer = document.getElementById('chat-messages');
+            const now = new Date();
+            const time = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message message-sent';
+            messageDiv.innerHTML = `
+                <div>${message}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            input.value = '';
+            
+            setTimeout(() => {
+                const responseDiv = document.createElement('div');
+                responseDiv.className = 'message message-received';
+                responseDiv.innerHTML = `
+                    <div>Rendben, megértettem. Indulok is!</div>
+                    <div class="message-time">${time}</div>
+                `;
+                messagesContainer.appendChild(responseDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 2000);
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        console.log('✅ OtthonFix Platform betöltve - TELJES verzió szerelőkkel!');
+    </script>
+</body>
+</html>
