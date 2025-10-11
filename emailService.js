@@ -1,5 +1,4 @@
 
-
 // emailService.js - Automatikus Fallback (iCloud → Gmail)
 
 const nodemailer = require('nodemailer');

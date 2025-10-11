@@ -1,5 +1,3 @@
-const emailService = require('./services/emailService');
-
 // OtthonFix Backend - Node.js + Express + Socket.io + EMAIL
 // npm install express socket.io cors body-parser nodemailer
 
@@ -9,7 +7,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-// ✉️ EMAIL SERVICE IMPORT (HELYES ÚTVONAL)
+// ✉️ EMAIL SERVICE IMPORT (CSAK EGYSZER!)
 const emailService = require('./emailService');
 
 const app = express();
@@ -141,7 +139,7 @@ app.post('/api/mechanics/register', async (req, res) => {
     reviews: 0,
     avatar: categories.includes('water') ? '💧' : 
             categories.includes('electric') ? '⚡' :
-            categories.includes('heating') ? '🔥' : '🔐',
+            categories.includes('heating') ? '🔥' : '🔨',
     location: { lat: 47.4979, lng: 19.0402 },
     online: false,
     activeOrders: 0,
