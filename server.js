@@ -1,4 +1,4 @@
-require('dotenv').config();
+const emailService = require('./services/emailService');
 
 // OtthonFix Backend - Node.js + Express + Socket.io + EMAIL
 // npm install express socket.io cors body-parser nodemailer
@@ -297,43 +297,11 @@ app.post('/api/orders/:orderId/review', (req, res) => {
 app.post('/api/email/test', async (req, res) => {
   const { email } = req.body;
   
-  if (!email) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Email cím hiányzik' 
-    });
-  }
-  
   try {
-    const result = await emailService.sendEmail({
-      to: email,
-      subject: 'OtthonFix - Email Teszt ✅',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #6366f1;">🏠 OtthonFix</h1>
-          <h2>Email rendszer működik!</h2>
-          <p>Ez egy teszt email az OtthonFix platformtól.</p>
-          <p><strong>Sikeres teszt!</strong> ✅</p>
-          <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 12px;">
-            OtthonFix - Otthoni problémák azonnali megoldása<br>
-            <a href="mailto:support@otthonfix.com">support@otthonfix.com</a>
-          </p>
-        </div>
-      `
-    });
-    
-    res.json({ 
-      success: true, 
-      result: result,
-      message: 'Email sikeresen elküldve!' 
-    });
+    const result = await emailService.sendTest(email);
+    res.json({ success: true, result });
   } catch (error) {
-    console.error('❌ Email teszt hiba:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
