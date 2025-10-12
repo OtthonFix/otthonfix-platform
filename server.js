@@ -420,7 +420,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`
   ✅ OtthonFix Backend fut: http://localhost:${PORT}
