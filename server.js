@@ -1,5 +1,5 @@
 // OtthonFix Backend - Node.js + Express + Socket.io + EMAIL
-// npm install express socket.io cors body-parser nodemailer
+// npm install express socket.io cors body-parser @sendgrid/mail
 
 const express = require('express');
 const http = require('http');
@@ -292,7 +292,7 @@ app.post('/api/orders/:orderId/review', (req, res) => {
   });
 });
 
-// JAVÍTOTT: Email teszt endpoint - POST verzió
+// Email teszt endpoint - POST verzió
 app.post('/api/email/test', async (req, res) => {
   try {
     const { email } = req.body;
@@ -321,7 +321,7 @@ app.post('/api/email/test', async (req, res) => {
   }
 });
 
-// JAVÍTOTT: Email teszt endpoint - GET verzió (böngészős teszteléshez)
+// Email teszt endpoint - GET verzió (böngészős teszteléshez)
 app.get('/api/email/test', async (req, res) => {
   const email = req.query.email || 'test@example.com';
   
@@ -343,13 +343,12 @@ app.get('/api/email/test', async (req, res) => {
 // Email kapcsolat ellenőrzés endpoint
 app.get('/api/email/verify', async (req, res) => {
   try {
-    const provider = req.query.provider || 'icloud';
-    const result = await emailService.verifyConnection(provider);
+    const result = await emailService.verifyConnection();
     
     res.json({
       success: result,
-      provider: provider,
-      message: result ? 'Kapcsolat sikeres' : 'Kapcsolat sikertelen'
+      provider: 'sendgrid',
+      message: result ? 'SendGrid REST API ready' : 'SendGrid not configured'
     });
   } catch (error) {
     res.status(500).json({
@@ -421,12 +420,12 @@ server.listen(PORT, () => {
   console.log(`
   ✅ OtthonFix Backend fut: ${baseUrl}
   ✉️  Email system: ACTIVE
-  📧 Email provider: ${emailService.primaryProvider.toUpperCase()}
+  📧 Email provider: SENDGRID REST API
   🌐 Environment: ${process.env.NODE_ENV || 'development'}
   
   🔗 Endpoints:
      - Health: ${baseUrl}/health
      - Email test: ${baseUrl}/api/email/test?email=your@email.com
-     - Email verify: ${baseUrl}/api/email/verify?provider=sendgrid
+     - Email verify: ${baseUrl}/api/email/verify
   `);
 });
