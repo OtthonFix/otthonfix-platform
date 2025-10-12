@@ -417,8 +417,16 @@ app.get('/health', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   console.log(`
-  ✅ OtthonFix Backend fut: http://localhost:${PORT}
+  ✅ OtthonFix Backend fut: ${baseUrl}
   ✉️  Email system: ACTIVE
+  📧 Email provider: ${emailService.primaryProvider.toUpperCase()}
+  🌐 Environment: ${process.env.NODE_ENV || 'development'}
+  
+  🔗 Endpoints:
+     - Health: ${baseUrl}/health
+     - Email test: ${baseUrl}/api/email/test?email=your@email.com
+     - Email verify: ${baseUrl}/api/email/verify?provider=sendgrid
   `);
 });
