@@ -1,4 +1,3 @@
-
 // emailService.js - Automatikus Fallback (iCloud → Gmail)
 
 const nodemailer = require('nodemailer');
@@ -6,7 +5,7 @@ const nodemailer = require('nodemailer');
 // Email templates
 const emailTemplates = {
   reg_confirmation: {
-    subject: "Üdv a {{company_name}}-nál! Aktiváld a fiókod",
+    subject: "Üdv a {{company_name}}-nál! Aktiváld a fiókodat",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
       <h2 style="color:#F5B93C;">Köszönjük, hogy regisztráltál, {{first_name}}!</h2>
       <p>Kérjük, aktiváld a fiókodat:</p>
@@ -15,17 +14,17 @@ const emailTemplates = {
       </div>
       <p style="color:#666;">Kérdés: <a href="mailto:{{support_email}}">{{support_email}}</a></p>
     </div>`,
-    text: `Kedves {{first_name}}!\n\nAktiváld a fiókod: {{action_url}}\n\nÜdv, {{company_name}}`
+    text: `Kedves {{first_name}}!\n\nAktiváld a fiókodat: {{action_url}}\n\nÜdv, {{company_name}}`
   },
   
   onboarding: {
-    subject: "Hogyan működik a {{company_name}} — 3 perc és kész",
+    subject: "Hogyan működik a {{company_name}} – 3 perc és kész",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
       <h3>Üdv a {{company_name}}-nál, {{first_name}}!</h3>
       <p>Íme 3 gyors lépés:</p>
       <ol style="line-height:2;">
-        <li>Töltsd ki a profilod</li>
-        <li>Állítsd be az elérhetőséged</li>
+        <li>Töltsd ki a profilodat</li>
+        <li>Állítsd be az elérhetőségedet</li>
         <li>Engedélyezd az értesítéseket</li>
       </ol>
       <div style="text-align:center;margin:20px 0;">
@@ -48,7 +47,7 @@ const emailTemplates = {
   },
 
   new_job_notification_tech: {
-    subject: "Új megrendelés — {{category}} ({{job_id}})",
+    subject: "Új megrendelés – {{category}} ({{job_id}})",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
       <h3>Új megrendelés ({{job_id}})</h3>
       <p><strong>Cím:</strong> {{address}}<br/><strong>Leírás:</strong> {{job_title}}</p>
@@ -61,7 +60,7 @@ const emailTemplates = {
   },
 
   job_accepted_confirmation: {
-    subject: "Szerelő úton van — {{technician_name}} ({{eta}})",
+    subject: "Szerelő úton van – {{technician_name}} ({{eta}})",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
       <h3>Összekapcsoltunk a szerelővel</h3>
       <p><strong>{{technician_name}}</strong><br/>
@@ -72,7 +71,7 @@ const emailTemplates = {
   },
 
   job_completed_invoice: {
-    subject: "Munka lezárva — számla ({{job_id}})",
+    subject: "Munka lezárva – számla ({{job_id}})",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
       <h3>Munka lezárva ({{job_id}})</h3>
       <p>Számla: <a href="{{invoice_url}}">Megnyitás / Letöltés</a></p>
@@ -92,6 +91,16 @@ const emailTemplates = {
       </p>
     </div>`,
     text: `Értékeld a munkát: {{rating_url}}`
+  },
+
+  test: {
+    subject: "OtthonFix - Email Teszt",
+    html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
+      <h3>Email Teszt</h3>
+      <p>{{message}}</p>
+      <p style="color:#666;">Ez egy teszt email az OtthonFix rendszerből.</p>
+    </div>`,
+    text: `Email Teszt\n\n{{message}}`
   }
 };
 
@@ -209,7 +218,7 @@ class EmailService {
           throw new Error(`Secondary provider (${this.secondaryProvider}) not configured`);
         }
 
-        mailOptions.from = `${this.config.company_name} <${this.providers[this.primaryProvider].auth.user}>`;
+        mailOptions.from = `${this.config.company_name} <${this.providers[this.secondaryProvider].auth.user}>`;
         
         const info = await transporter.sendMail(mailOptions);
         
@@ -237,6 +246,11 @@ class EmailService {
         };
       }
     }
+  }
+
+  // JAVÍTOTT: sendEmail metódus hozzáadva
+  async sendEmail({ to, subject, template, data }) {
+    return this.send(template, to, data);
   }
 
   async sendRegistrationConfirmation(user) {
@@ -300,9 +314,8 @@ class EmailService {
   }
 
   async sendTest(recipientEmail) {
-    return this.send('reg_confirmation', recipientEmail, {
-      first_name: 'Teszt',
-      action_url: `${this.config.base_url}/test`
+    return this.send('test', recipientEmail, {
+      message: 'Az email rendszer működik! ✅'
     });
   }
 

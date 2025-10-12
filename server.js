@@ -7,7 +7,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-// ✉️ EMAIL SERVICE IMPORT (CSAK EGYSZER!)
+// ✉️ EMAIL SERVICE IMPORT
 const emailService = require('./emailService');
 
 const app = express();
@@ -150,7 +150,7 @@ app.post('/api/mechanics/register', async (req, res) => {
   database.mechanics.push(newMechanic);
   
   emailService.sendRegistrationConfirmation(newMechanic)
-    .then(result => console.log('✅ Reg email sent'))
+    .then(result => console.log('✅ Reg email sent:', result))
     .catch(err => console.error('❌ Email failed:', err.message));
   
   res.json({ 
@@ -292,7 +292,7 @@ app.post('/api/orders/:orderId/review', (req, res) => {
   });
 });
 
-// Email teszt endpoint
+// JAVÍTOTT: Email teszt endpoint - POST verzió
 app.post('/api/email/test', async (req, res) => {
   try {
     const { email } = req.body;
@@ -304,17 +304,11 @@ app.post('/api/email/test', async (req, res) => {
       });
     }
 
-    const result = await emailService.sendEmail({
-      to: email,
-      subject: 'OtthonFix - Email Teszt',
-      template: 'test',
-      data: {
-        message: 'Az email rendszer működik! ✅'
-      }
-    });
+    const result = await emailService.sendTest(email);
 
     res.json({
       success: true,
+      message: `Teszt email elküldve: ${email}`,
       result: result
     });
 
@@ -327,7 +321,7 @@ app.post('/api/email/test', async (req, res) => {
   }
 });
 
-// GET verzió böngészős teszteléshez
+// JAVÍTOTT: Email teszt endpoint - GET verzió (böngészős teszteléshez)
 app.get('/api/email/test', async (req, res) => {
   const email = req.query.email || 'test@example.com';
   
@@ -346,25 +340,26 @@ app.get('/api/email/test', async (req, res) => {
   }
 });
 
-// GET verzió böngészős teszteléshez
-app.get('/api/email/test', async (req, res) => {
-  const email = req.query.email || 'test@example.com';
-  
+// Email kapcsolat ellenőrzés endpoint
+app.get('/api/email/verify', async (req, res) => {
   try {
-    const result = await emailService.sendTest(email);
-    res.json({ 
-      success: true, 
-      message: `Teszt email elküldve: ${email}`,
-      result 
+    const provider = req.query.provider || 'icloud';
+    const result = await emailService.verifyConnection(provider);
+    
+    res.json({
+      success: result,
+      provider: provider,
+      message: result ? 'Kapcsolat sikeres' : 'Kapcsolat sikertelen'
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: error.message 
+      error: error.message
     });
   }
 });
 
+// Socket.io események
 io.on('connection', (socket) => {
   console.log('Új kapcsolat:', socket.id);
   
@@ -420,7 +415,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`
   ✅ OtthonFix Backend fut: http://localhost:${PORT}
