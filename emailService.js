@@ -1,9 +1,19 @@
-// emailService.js - Automatikus Fallback (SendGrid → Gmail → iCloud)
+// emailService.js - SendGrid REST API
 
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
 // Email templates
 const emailTemplates = {
+  test: {
+    subject: "OtthonFix - Email Teszt",
+    html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
+      <h3>Email Teszt</h3>
+      <p>{{message}}</p>
+      <p style="color:#666;">Ez egy teszt email az OtthonFix rendszerből.</p>
+    </div>`,
+    text: `Email Teszt\n\n{{message}}`
+  },
+  
   reg_confirmation: {
     subject: "Üdv a {{company_name}}-nál! Aktiváld a fiókodat",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
@@ -15,78 +25,29 @@ const emailTemplates = {
       <p style="color:#666;">Kérdés: <a href="mailto:{{support_email}}">{{support_email}}</a></p>
     </div>`,
     text: `Kedves {{first_name}}!\n\nAktiváld a fiókodat: {{action_url}}\n\nÜdv, {{company_name}}`
-  },
-  
-  test: {
-    subject: "OtthonFix - Email Teszt",
-    html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
-      <h3>Email Teszt</h3>
-      <p>{{message}}</p>
-      <p style="color:#666;">Ez egy teszt email az OtthonFix rendszerből.</p>
-    </div>`,
-    text: `Email Teszt\n\n{{message}}`
   }
 };
 
 class EmailService {
   constructor() {
-    // Email providers konfigurációja
-    this.providers = {
-      sendgrid: {
-        host: process.env.SENDGRID_HOST || 'smtp.sendgrid.net',
-        port: parseInt(process.env.SENDGRID_PORT) || 587,
-        secure: false,
-        auth: {
-          user: process.env.SENDGRID_USER || 'apikey',
-          pass: process.env.SENDGRID_API_KEY
-        }
-      },
-      icloud: {
-        host: process.env.ICLOUD_HOST || 'smtp.mail.me.com',
-        port: parseInt(process.env.ICLOUD_PORT) || 587,
-        secure: parseInt(process.env.ICLOUD_PORT) === 465,
-        auth: {
-          user: process.env.ICLOUD_USER,
-          pass: process.env.ICLOUD_PASS
-        },
-        tls: { rejectUnauthorized: false }
-      },
-      gmail: {
-        host: process.env.GMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.GMAIL_PORT) || 587,
-        secure: parseInt(process.env.GMAIL_PORT) === 465,
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS
-        },
-        tls: { rejectUnauthorized: false }
-      }
-    };
-
-    // Elsődleges és másodlagos provider
-    this.primaryProvider = process.env.EMAIL_PROVIDER || 'sendgrid';
-    this.secondaryProvider = this.primaryProvider === 'sendgrid' ? 'gmail' : 
-                            this.primaryProvider === 'icloud' ? 'gmail' : 'sendgrid';
-
-    // Transporterek létrehozása
-    this.transporters = {};
-    
-    Object.keys(this.providers).forEach(provider => {
-      if (this.providers[provider].auth.user && this.providers[provider].auth.pass) {
-        this.transporters[provider] = nodemailer.createTransport(this.providers[provider]);
-      }
-    });
-
     this.config = {
       company_name: 'OtthonFix',
-      support_email: process.env.SUPPORT_EMAIL || 'support@otthonfix.com',
+      support_email: process.env.SUPPORT_EMAIL || 'info@otthonfix.com',
+      from_email: process.env.SUPPORT_EMAIL || 'info@otthonfix.com',
       base_url: process.env.BASE_URL || 'http://localhost:3000'
     };
 
-    console.log('📧 Email Service initialized (Fallback Mode)');
-    console.log(`   Primary: ${this.primaryProvider.toUpperCase()}`);
-    console.log(`   Fallback: ${this.secondaryProvider.toUpperCase()}`);
-    console.log(`   Configured: ${Object.keys(this.transporters).join(', ')}`);
+    // SendGrid inicializálás
+    if (process.env.SENDGRID_API_KEY) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      this.initialized = true;
+      console.log('📧 Email Service initialized (SendGrid REST API)');
+      console.log(`   From: ${this.config.from_email}`);
+      console.log(`   Base URL: ${this.config.base_url}`);
+    } else {
+      this.initialized = false;
+      console.error('❌ SENDGRID_API_KEY not configured!');
+    }
   }
 
   replacePlaceholders(template, data) {
@@ -102,6 +63,10 @@ class EmailService {
   }
 
   async send(templateId, recipientEmail, data = {}) {
+    if (!this.initialized) {
+      throw new Error('SendGrid not initialized - check SENDGRID_API_KEY');
+    }
+
     const template = emailTemplates[templateId];
     
     if (!template) {
@@ -112,73 +77,46 @@ class EmailService {
     const html = this.replacePlaceholders(template.html, data);
     const text = this.replacePlaceholders(template.text, data);
 
-    const mailOptions = {
+    const msg = {
       to: recipientEmail,
+      from: {
+        email: this.config.from_email,
+        name: this.config.company_name
+      },
       subject: subject,
-      html: html,
-      text: text
+      text: text,
+      html: html
     };
 
-    // Próbáld meg az elsődleges providerrel
     try {
-      const transporter = this.transporters[this.primaryProvider];
+      const response = await sgMail.send(msg);
       
-      if (!transporter) {
-        throw new Error(`Primary provider (${this.primaryProvider}) not configured`);
-      }
-
-      mailOptions.from = `${this.config.company_name} <${this.providers[this.primaryProvider].auth.user}>`;
-      
-      const info = await transporter.sendMail(mailOptions);
-      
-      console.log(`✅ Email sent via ${this.primaryProvider.toUpperCase()}: ${templateId} → ${recipientEmail}`);
-      console.log(`   Message ID: ${info.messageId}`);
+      console.log(`✅ Email sent via SENDGRID REST API: ${templateId} → ${recipientEmail}`);
+      console.log(`   Status: ${response[0].statusCode}`);
       
       return {
         success: true,
-        messageId: info.messageId,
-        provider: this.primaryProvider,
+        messageId: response[0].headers['x-message-id'],
+        provider: 'sendgrid',
+        template: templateId,
+        recipient: recipientEmail,
+        statusCode: response[0].statusCode
+      };
+    } catch (error) {
+      console.error(`❌ SendGrid error:`, error.message);
+      
+      if (error.response) {
+        console.error(`   Status: ${error.response.statusCode}`);
+        console.error(`   Body:`, JSON.stringify(error.response.body));
+      }
+      
+      return {
+        success: false,
+        error: error.message,
+        details: error.response ? error.response.body : null,
         template: templateId,
         recipient: recipientEmail
       };
-    } catch (primaryError) {
-      console.warn(`⚠️ Primary provider (${this.primaryProvider}) failed: ${primaryError.message}`);
-      
-      // Próbáld meg a másodlagos providerrel
-      try {
-        const transporter = this.transporters[this.secondaryProvider];
-        
-        if (!transporter) {
-          throw new Error(`Secondary provider (${this.secondaryProvider}) not configured`);
-        }
-
-        mailOptions.from = `${this.config.company_name} <${this.providers[this.secondaryProvider].auth.user}>`;
-        
-        const info = await transporter.sendMail(mailOptions);
-        
-        console.log(`✅ Email sent via ${this.secondaryProvider.toUpperCase()} (fallback): ${templateId} → ${recipientEmail}`);
-        console.log(`   Message ID: ${info.messageId}`);
-        
-        return {
-          success: true,
-          messageId: info.messageId,
-          provider: this.secondaryProvider,
-          fallback: true,
-          template: templateId,
-          recipient: recipientEmail
-        };
-      } catch (secondaryError) {
-        console.error(`❌ Both providers failed!`);
-        console.error(`   Primary (${this.primaryProvider}): ${primaryError.message}`);
-        console.error(`   Secondary (${this.secondaryProvider}): ${secondaryError.message}`);
-        
-        return {
-          success: false,
-          error: `All providers failed. Last error: ${secondaryError.message}`,
-          template: templateId,
-          recipient: recipientEmail
-        };
-      }
     }
   }
 
@@ -192,19 +130,20 @@ class EmailService {
     });
   }
 
-  async verifyConnection(provider) {
-    try {
-      const transporter = this.transporters[provider];
-      if (!transporter) {
-        throw new Error(`Provider ${provider} not configured`);
-      }
-      await transporter.verify();
-      console.log(`✅ ${provider.toUpperCase()} connection verified`);
-      return true;
-    } catch (error) {
-      console.error(`❌ ${provider.toUpperCase()} connection failed: ${error.message}`);
+  async sendRegistrationConfirmation(user) {
+    return this.send('reg_confirmation', user.email, {
+      first_name: user.name.split(' ')[0],
+      action_url: `${this.config.base_url}/activate?token=${user.activationToken}`
+    });
+  }
+
+  async verifyConnection() {
+    if (!this.initialized) {
+      console.error('❌ SendGrid not initialized');
       return false;
     }
+    console.log('✅ SendGrid REST API configured and ready');
+    return true;
   }
 }
 
