@@ -292,19 +292,38 @@ app.post('/api/orders/:orderId/review', (req, res) => {
   });
 });
 
-// Email teszt endpoint (POST és GET)
+// Email teszt endpoint
 app.post('/api/email/test', async (req, res) => {
-  const { email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ error: 'Email cím kötelező' });
-  }
-  
   try {
-    const result = await emailService.sendTest(email);
-    res.json({ success: true, result });
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email cím hiányzik'
+      });
+    }
+
+    const result = await emailService.sendEmail({
+      to: email,
+      subject: 'OtthonFix - Email Teszt',
+      template: 'test',
+      data: {
+        message: 'Az email rendszer működik! ✅'
+      }
+    });
+
+    res.json({
+      success: true,
+      result: result
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Email teszt hiba:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
