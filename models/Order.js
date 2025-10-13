@@ -92,7 +92,6 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Indexek
-orderSchema.index({ orderId: 1 });
 orderSchema.index({ customerId: 1 });
 orderSchema.index({ mechanicId: 1 });
 orderSchema.index({ status: 1 });
@@ -110,6 +109,5 @@ orderSchema.pre('save', function(next) {
   }
   next();
 });
-
 
 module.exports = mongoose.model('Order', orderSchema);
