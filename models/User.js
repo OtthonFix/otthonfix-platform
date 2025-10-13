@@ -89,7 +89,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1, online: 1 });
 userSchema.index({ location: '2dsphere' });
 
@@ -131,5 +130,6 @@ userSchema.methods.toPublicJSON = function() {
     specialty: this.specialty
   };
 };
+
 
 module.exports = mongoose.model('User', userSchema);
