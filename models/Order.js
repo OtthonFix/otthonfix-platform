@@ -98,7 +98,7 @@ orderSchema.index({ mechanicId: 1 });
 orderSchema.index({ status: 1 });
 
 // Update updatedAt
-userSchema.pre('save', function(next) {
+orderSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
@@ -110,5 +110,6 @@ orderSchema.pre('save', function(next) {
   }
   next();
 });
+
 
 module.exports = mongoose.model('Order', orderSchema);
