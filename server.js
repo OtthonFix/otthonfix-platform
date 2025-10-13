@@ -1,79 +1,34 @@
-// OtthonFix Backend - Node.js + Express + Socket.io + EMAIL
-// npm install express socket.io cors body-parser nodemailer
-
+// OtthonFix Backend - MongoDB Version
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 
-// ✉️ EMAIL SERVICE IMPORT
+// Database
+const connectDB = require('./config/database');
+const User = require('./models/User');
+const Order = require('./models/Order');
+const Message = require('./models/Message');
+
+// Email Service
 const emailService = require('./emailService');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// In-memory adatbázis
-const database = {
-  mechanics: [
-    {
-      id: 1,
-      name: "Kovács János",
-      email: "kovacs@fixfast.hu",
-      phone: "+36201234567",
-      categories: ["water"],
-      hourlyRate: 8000,
-      rating: 4.9,
-      reviews: 127,
-      avatar: "👨‍🔧",
-      location: { lat: 47.4979, lng: 19.0402 },
-      online: true,
-      activeOrders: 0
-    },
-    {
-      id: 2,
-      name: "Nagy Péter",
-      email: "nagy@fixfast.hu",
-      phone: "+36209876543",
-      categories: ["electric"],
-      hourlyRate: 9500,
-      rating: 4.8,
-      reviews: 203,
-      avatar: "⚡",
-      location: { lat: 47.5102, lng: 19.0557 },
-      online: true,
-      activeOrders: 1
-    },
-    {
-      id: 3,
-      name: "Tóth András",
-      email: "toth@fixfast.hu",
-      phone: "+36207654321",
-      categories: ["heating", "water"],
-      hourlyRate: 7500,
-      rating: 4.7,
-      reviews: 89,
-      avatar: "🔥",
-      location: { lat: 47.4813, lng: 19.0567 },
-      online: false,
-      activeOrders: 0
-    }
-  ],
-  clients: [],
-  orders: [],
-  messages: []
-};
+// Connect to MongoDB
+connectDB();
 
+// Helper Functions
 function calculateDistance(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -85,316 +40,412 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-function findBestMechanic(category, clientLocation) {
-  const available = database.mechanics.filter(m => 
-    m.online && 
-    m.categories.includes(category) &&
-    m.activeOrders < 3
-  );
-
-  if (available.length === 0) return null;
-
-  const scored = available.map(mechanic => {
-    const distance = calculateDistance(
-      clientLocation.lat, clientLocation.lng,
-      mechanic.location.lat, mechanic.location.lng
-    );
-    
-    const distanceScore = Math.max(0, 10 - distance) / 10;
-    const ratingScore = mechanic.rating / 5;
-    const totalScore = (distanceScore * 0.7) + (ratingScore * 0.3);
-    
-    return {
-      ...mechanic,
-      distance: distance.toFixed(1),
-      score: totalScore
-    };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored;
-}
-
 function generateToken() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-// REST API végpontok
+// ============ API ENDPOINTS ============
 
+// Mechanic Registration
 app.post('/api/mechanics/register', async (req, res) => {
-  const { name, email, phone, categories, hourlyRate } = req.body;
-  
-  if (!name || !email || !phone || !categories || !hourlyRate) {
-    return res.status(400).json({ error: 'Hiányzó adatok' });
-  }
-
-  const newMechanic = {
-    id: database.mechanics.length + 1,
-    name,
-    email,
-    phone,
-    categories,
-    hourlyRate: parseInt(hourlyRate),
-    rating: 5.0,
-    reviews: 0,
-    avatar: categories.includes('water') ? '💧' : 
-            categories.includes('electric') ? '⚡' :
-            categories.includes('heating') ? '🔥' : '🔨',
-    location: { lat: 47.4979, lng: 19.0402 },
-    online: false,
-    activeOrders: 0,
-    activationToken: generateToken(),
-    createdAt: new Date().toISOString()
-  };
-
-  database.mechanics.push(newMechanic);
-  
-  emailService.sendRegistrationConfirmation(newMechanic)
-    .then(result => console.log('✅ Reg email sent:', result))
-    .catch(err => console.error('❌ Email failed:', err.message));
-  
-  res.json({ 
-    success: true, 
-    mechanic: newMechanic,
-    message: 'Sikeres regisztráció!' 
-  });
-});
-
-app.put('/api/mechanics/:id/status', (req, res) => {
-  const { id } = req.params;
-  const { online } = req.body;
-  
-  const mechanic = database.mechanics.find(m => m.id === parseInt(id));
-  
-  if (!mechanic) {
-    return res.status(404).json({ error: 'Szerelő nem található' });
-  }
-  
-  mechanic.online = online;
-  
-  res.json({ 
-    success: true, 
-    mechanic,
-    message: `Státusz: ${online ? 'Online' : 'Offline'}` 
-  });
-});
-
-app.post('/api/match', async (req, res) => {
-  const { category, description, location, customerEmail, customerName } = req.body;
-  
-  if (!category) {
-    return res.status(400).json({ error: 'Kategória megadása kötelező' });
-  }
-
-  const clientLocation = location || { lat: 47.4979, lng: 19.0402 };
-  const mechanics = findBestMechanic(category, clientLocation);
-  
-  if (!mechanics || mechanics.length === 0) {
-    return res.status(404).json({ 
-      error: 'Jelenleg nincs elérhető szerelő'
-    });
-  }
-
-  const order = {
-    id: `ORD-${Date.now()}`,
-    category,
-    description,
-    clientLocation,
-    customerEmail: customerEmail || 'test@example.com',
-    customerName: customerName || 'Teszt Ügyfél',
-    mechanics: mechanics.slice(0, 3),
-    status: 'pending',
-    estimatedArrival: '30 perc',
-    createdAt: new Date().toISOString()
-  };
-  
-  database.orders.push(order);
-
-  res.json({ 
-    success: true, 
-    mechanics: mechanics.slice(0, 3),
-    orderId: order.id
-  });
-});
-
-app.post('/api/orders/:orderId/accept', async (req, res) => {
-  const { orderId } = req.params;
-  const { mechanicId } = req.body;
-  
-  const order = database.orders.find(o => o.id === orderId);
-  const mechanic = database.mechanics.find(m => m.id === mechanicId);
-  
-  if (!order || !mechanic) {
-    return res.status(404).json({ error: 'Megrendelés vagy szerelő nem található' });
-  }
-  
-  order.status = 'accepted';
-  order.mechanicId = mechanicId;
-  order.acceptedAt = new Date().toISOString();
-  order.estimatedArrival = '15 perc';
-  
-  mechanic.activeOrders += 1;
-  
-  io.emit(`order-${orderId}-accepted`, { mechanic, order });
-  
-  res.json({ 
-    success: true, 
-    order,
-    message: 'Megrendelés elfogadva!' 
-  });
-});
-
-app.get('/api/orders/:orderId/messages', (req, res) => {
-  const { orderId } = req.params;
-  const messages = database.messages.filter(m => m.orderId === orderId);
-  res.json({ messages });
-});
-
-app.get('/api/mechanics', (req, res) => {
-  const { category, online } = req.query;
-  let mechanics = database.mechanics;
-  
-  if (category) {
-    mechanics = mechanics.filter(m => m.categories.includes(category));
-  }
-  
-  if (online !== undefined) {
-    mechanics = mechanics.filter(m => m.online === (online === 'true'));
-  }
-  
-  res.json({ mechanics });
-});
-
-app.post('/api/orders/:orderId/review', (req, res) => {
-  const { orderId } = req.params;
-  const { rating, comment } = req.body;
-  
-  const order = database.orders.find(o => o.id === orderId);
-  
-  if (!order || order.status !== 'completed') {
-    return res.status(400).json({ error: 'Csak befejezett munkát lehet értékelni' });
-  }
-  
-  const mechanic = database.mechanics.find(m => m.id === order.mechanicId);
-  
-  if (mechanic) {
-    const totalRating = (mechanic.rating * mechanic.reviews) + rating;
-    mechanic.reviews += 1;
-    mechanic.rating = (totalRating / mechanic.reviews).toFixed(1);
-  }
-  
-  order.review = { rating, comment, createdAt: new Date().toISOString() };
-  
-  res.json({ 
-    success: true, 
-    message: 'Köszönjük az értékelést!',
-    mechanic 
-  });
-});
-
-// JAVÍTOTT: Email teszt endpoint - POST verzió
-app.post('/api/email/test', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { name, email, phone, categories, hourlyRate } = req.body;
     
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email cím hiányzik'
+    if (!name || !email || !phone || !categories || !hourlyRate) {
+      return res.status(400).json({ error: 'Hiányzó adatok' });
+    }
+
+    // Check if email exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Ez az email cím már regisztrálva van' });
+    }
+
+    // Create new mechanic
+    const newMechanic = new User({
+      name,
+      email: email.toLowerCase(),
+      phone,
+      role: 'mechanic',
+      categories,
+      hourlyRate: parseInt(hourlyRate),
+      rating: 5.0,
+      reviews: 0,
+      avatar: categories.includes('water') ? '💧' : 
+              categories.includes('electric') ? '⚡' :
+              categories.includes('heating') ? '🔥' : '🔨',
+      location: { lat: 47.4979, lng: 19.0402 },
+      online: false,
+      activeOrders: 0,
+      activationToken: generateToken(),
+      isActive: false
+    });
+
+    await newMechanic.save();
+    
+    // Send confirmation email
+    emailService.sendRegistrationConfirmation(newMechanic)
+      .then(result => console.log('✅ Reg email sent:', result.success))
+      .catch(err => console.error('❌ Email failed:', err.message));
+    
+    res.json({ 
+      success: true, 
+      mechanic: newMechanic.toPublicJSON(),
+      message: 'Sikeres regisztráció! Ellenőrizd az email fiókodat az aktiváláshoz.' 
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Szerver hiba a regisztráció során' });
+  }
+});
+
+// Update Mechanic Status (Online/Offline)
+app.put('/api/mechanics/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { online } = req.body;
+    
+    const mechanic = await User.findById(id);
+    
+    if (!mechanic || mechanic.role !== 'mechanic') {
+      return res.status(404).json({ error: 'Szerelő nem található' });
+    }
+    
+    mechanic.online = online;
+    await mechanic.save();
+    
+    res.json({ 
+      success: true, 
+      mechanic: mechanic.toPublicJSON(),
+      message: `Státusz: ${online ? 'Online' : 'Offline'}` 
+    });
+
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({ error: 'Státusz frissítés sikertelen' });
+  }
+});
+
+// Find Mechanics (Match Algorithm)
+app.post('/api/match', async (req, res) => {
+  try {
+    const { category, description, location, customerEmail, customerName } = req.body;
+    
+    if (!category) {
+      return res.status(400).json({ error: 'Kategória megadása kötelező' });
+    }
+
+    const clientLocation = location || { lat: 47.4979, lng: 19.0402 };
+    
+    // Find available mechanics
+    const mechanics = await User.find({
+      role: 'mechanic',
+      online: true,
+      categories: category,
+      activeOrders: { $lt: 3 }
+    });
+
+    if (mechanics.length === 0) {
+      return res.status(404).json({ 
+        error: 'Jelenleg nincs elérhető szerelő ebben a kategóriában'
       });
     }
 
-    const result = await emailService.sendTest(email);
+    // Calculate scores
+    const scored = mechanics.map(mechanic => {
+      const distance = calculateDistance(
+        clientLocation.lat, clientLocation.lng,
+        mechanic.location.lat, mechanic.location.lng
+      );
+      
+      const distanceScore = Math.max(0, 10 - distance) / 10;
+      const ratingScore = mechanic.rating / 5;
+      const totalScore = (distanceScore * 0.7) + (ratingScore * 0.3);
+      
+      return {
+        ...mechanic.toPublicJSON(),
+        distance: distance.toFixed(1),
+        score: totalScore
+      };
+    });
 
-    res.json({
-      success: true,
-      message: `Teszt email elküldve: ${email}`,
-      result: result
+    scored.sort((a, b) => b.score - a.score);
+
+    // Create order
+    const order = new Order({
+      category,
+      description,
+      location: clientLocation,
+      customerEmail: customerEmail || 'test@example.com',
+      customerName: customerName || 'Teszt Ügyfél',
+      status: 'pending',
+      estimatedArrival: '30 perc',
+      suggestedMechanics: scored.slice(0, 3).map(m => ({
+        mechanicId: m.id,
+        distance: parseFloat(m.distance),
+        score: m.score
+      }))
+    });
+    
+    await order.save();
+
+    res.json({ 
+      success: true, 
+      mechanics: scored.slice(0, 3),
+      orderId: order.orderId
     });
 
   } catch (error) {
-    console.error('❌ Email teszt hiba:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('Match error:', error);
+    res.status(500).json({ error: 'Keresés sikertelen' });
   }
 });
 
-// JAVÍTOTT: Email teszt endpoint - GET verzió (böngészős teszteléshez)
-app.get('/api/email/test', async (req, res) => {
-  const email = req.query.email || 'test@example.com';
-  
+// Accept Order
+app.post('/api/orders/:orderId/accept', async (req, res) => {
   try {
-    const result = await emailService.sendTest(email);
+    const { orderId } = req.params;
+    const { mechanicId } = req.body;
+    
+    const order = await Order.findOne({ orderId });
+    const mechanic = await User.findById(mechanicId);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Megrendelés nem található' });
+    }
+    
+    if (!mechanic || mechanic.role !== 'mechanic') {
+      return res.status(404).json({ error: 'Szerelő nem található' });
+    }
+    
+    // Update order
+    order.status = 'accepted';
+    order.mechanicId = mechanicId;
+    order.mechanicName = mechanic.name;
+    order.acceptedAt = new Date();
+    order.estimatedArrival = '15 perc';
+    await order.save();
+    
+    // Update mechanic
+    mechanic.activeOrders += 1;
+    await mechanic.save();
+    
+    // Socket.io notification
+    io.emit(`order-${orderId}-accepted`, { 
+      mechanic: mechanic.toPublicJSON(), 
+      order 
+    });
+    
     res.json({ 
       success: true, 
-      message: `Teszt email elküldve: ${email}`,
-      result 
+      order,
+      message: 'Megrendelés elfogadva!' 
+    });
+
+  } catch (error) {
+    console.error('Accept order error:', error);
+    res.status(500).json({ error: 'Megrendelés elfogadása sikertelen' });
+  }
+});
+
+// Get Order Messages
+app.get('/api/orders/:orderId/messages', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const messages = await Message.find({ orderId }).sort({ createdAt: 1 });
+    res.json({ messages });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ error: 'Üzenetek lekérése sikertelen' });
+  }
+});
+
+// Get Mechanics List
+app.get('/api/mechanics', async (req, res) => {
+  try {
+    const { category, online } = req.query;
+    let query = { role: 'mechanic' };
+    
+    if (category) {
+      query.categories = category;
+    }
+    
+    if (online !== undefined) {
+      query.online = online === 'true';
+    }
+    
+    const mechanics = await User.find(query);
+    res.json({ mechanics: mechanics.map(m => m.toPublicJSON()) });
+
+  } catch (error) {
+    console.error('Get mechanics error:', error);
+    res.status(500).json({ error: 'Szerelők lekérése sikertelen' });
+  }
+});
+
+// Submit Review
+app.post('/api/orders/:orderId/review', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { rating, comment } = req.body;
+    
+    const order = await Order.findOne({ orderId });
+    
+    if (!order || order.status !== 'completed') {
+      return res.status(400).json({ error: 'Csak befejezett munkát lehet értékelni' });
+    }
+    
+    if (order.review && order.review.rating) {
+      return res.status(400).json({ error: 'Ez a munka már értékelve van' });
+    }
+    
+    const mechanic = await User.findById(order.mechanicId);
+    
+    if (mechanic) {
+      const totalRating = (mechanic.rating * mechanic.reviews) + rating;
+      mechanic.reviews += 1;
+      mechanic.rating = parseFloat((totalRating / mechanic.reviews).toFixed(1));
+      await mechanic.save();
+    }
+    
+    order.review = { rating, comment, createdAt: new Date() };
+    await order.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Köszönjük az értékelést!',
+      mechanic: mechanic ? mechanic.toPublicJSON() : null
+    });
+
+  } catch (error) {
+    console.error('Review error:', error);
+    res.status(500).json({ error: 'Értékelés rögzítése sikertelen' });
+  }
+});
+
+// ============ EMAIL ENDPOINTS ============
+
+app.post('/api/email/test', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email cím hiányzik' });
+    }
+    const result = await emailService.sendTest(email);
+    if (!result.success) {
+      return res.status(502).json({ success: false, message: 'Email küldés sikertelen', result });
+    }
+    return res.json({ success: true, message: `Teszt email elküldve: ${email}`, result });
+  } catch (error) {
+    console.error('❌ Email teszt hiba:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/email/test', async (req, res) => {
+  const email = req.query.email || 'test@example.com';
+  try {
+    const result = await emailService.sendTest(email);
+    if (!result.success) {
+      return res.status(502).json({ success: false, message: 'Email küldés sikertelen', result });
+    }
+    return res.json({ success: true, message: `Teszt email elküldve: ${email}`, result });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/email/verify', async (req, res) => {
+  try {
+    const ok = await emailService.verifyConnection();
+    return res.json({ 
+      success: ok, 
+      provider: 'SENDGRID REST API',
+      message: ok ? 'Kapcsolat sikeres' : 'Kapcsolat sikertelen' 
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============ HEALTH CHECK ============
+
+app.get('/health', async (req, res) => {
+  try {
+    const totalMechanics = await User.countDocuments({ role: 'mechanic' });
+    const onlineMechanics = await User.countDocuments({ role: 'mechanic', online: true });
+    const totalOrders = await Order.countDocuments();
+    const pendingOrders = await Order.countDocuments({ status: 'pending' });
+
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'Connected',
+      stats: {
+        totalMechanics,
+        onlineMechanics,
+        totalOrders,
+        pendingOrders
+      }
     });
   } catch (error) {
     res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-});
-
-// Email kapcsolat ellenőrzés endpoint
-app.get('/api/email/verify', async (req, res) => {
-  try {
-    const provider = req.query.provider || 'icloud';
-    const result = await emailService.verifyConnection(provider);
-    
-    res.json({
-      success: result,
-      provider: provider,
-      message: result ? 'Kapcsolat sikeres' : 'Kapcsolat sikertelen'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
+      status: 'ERROR',
       error: error.message
     });
   }
 });
 
-// Socket.io események
+// ============ SOCKET.IO ============
+
 io.on('connection', (socket) => {
   console.log('Új kapcsolat:', socket.id);
   
-  socket.on('mechanic-online', (mechanicId) => {
-    const mechanic = database.mechanics.find(m => m.id === mechanicId);
-    if (mechanic) {
-      mechanic.online = true;
-      mechanic.socketId = socket.id;
-      io.emit('mechanic-status-changed', { mechanicId, online: true });
+  socket.on('mechanic-online', async (mechanicId) => {
+    try {
+      const mechanic = await User.findById(mechanicId);
+      if (mechanic && mechanic.role === 'mechanic') {
+        mechanic.online = true;
+        mechanic.socketId = socket.id;
+        await mechanic.save();
+        io.emit('mechanic-status-changed', { mechanicId, online: true });
+      }
+    } catch (error) {
+      console.error('Socket mechanic-online error:', error);
     }
   });
   
-  socket.on('mechanic-offline', (mechanicId) => {
-    const mechanic = database.mechanics.find(m => m.id === mechanicId);
-    if (mechanic) {
-      mechanic.online = false;
-      mechanic.socketId = null;
-      io.emit('mechanic-status-changed', { mechanicId, online: false });
+  socket.on('mechanic-offline', async (mechanicId) => {
+    try {
+      const mechanic = await User.findById(mechanicId);
+      if (mechanic && mechanic.role === 'mechanic') {
+        mechanic.online = false;
+        mechanic.socketId = null;
+        await mechanic.save();
+        io.emit('mechanic-status-changed', { mechanicId, online: false });
+      }
+    } catch (error) {
+      console.error('Socket mechanic-offline error:', error);
     }
   });
   
-  socket.on('send-message', (data) => {
-    const { orderId, senderId, senderType, message } = data;
-    
-    const newMessage = {
-      id: database.messages.length + 1,
-      orderId,
-      senderId,
-      senderType,
-      message,
-      timestamp: new Date().toISOString()
-    };
-    
-    database.messages.push(newMessage);
-    io.emit(`order-${orderId}-message`, newMessage);
+  socket.on('send-message', async (data) => {
+    try {
+      const { orderId, senderId, senderType, message } = data;
+      
+      const newMessage = new Message({
+        orderId,
+        senderId,
+        senderType,
+        message
+      });
+      
+      await newMessage.save();
+      io.emit(`order-${orderId}-message`, newMessage);
+    } catch (error) {
+      console.error('Socket send-message error:', error);
+    }
   });
   
   socket.on('disconnect', () => {
@@ -402,23 +453,21 @@ io.on('connection', (socket) => {
   });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    stats: {
-      totalMechanics: database.mechanics.length,
-      onlineMechanics: database.mechanics.filter(m => m.online).length,
-      totalOrders: database.orders.length,
-      pendingOrders: database.orders.filter(o => o.status === 'pending').length
-    }
-  });
-});
+// ============ SERVER START ============
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   console.log(`
-  ✅ OtthonFix Backend fut: http://localhost:${PORT}
+  ✅ OtthonFix Backend fut: ${baseUrl}
   ✉️  Email system: ACTIVE
+  📧 Email provider: SENDGRID REST API
+  🗄️  Database: MongoDB Atlas
+  🌐 Environment: ${process.env.NODE_ENV || 'development'}
+  
+  🔗 Endpoints:
+     - Health: ${baseUrl}/health
+     - Email test: ${baseUrl}/api/email/test?email=your@email.com
+     - Email verify: ${baseUrl}/api/email/verify
   `);
 });
