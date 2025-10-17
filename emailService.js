@@ -1,5 +1,5 @@
-// emailService.js - SendGrid REST API
-
+// emailService.js - SendGrid REST API (FIXED)
+require('dotenv').config();
 const sgMail = require('@sendgrid/mail');
 
 // Email templates
@@ -13,7 +13,6 @@ const emailTemplates = {
     </div>`,
     text: `Email Teszt\n\n{{message}}`
   },
-  
   reg_confirmation: {
     subject: "Üdv a {{company_name}}-nál! Aktiváld a fiókodat",
     html: `<div style="font-family:Arial;color:#0A2540;padding:20px;max-width:600px;margin:0 auto;">
@@ -28,6 +27,11 @@ const emailTemplates = {
   }
 };
 
+function cleanApiKey(k = '') {
+  // Vágjunk ki MINDEN vezérlőkaraktert (CR/LF/TAB stb.), majd trim
+  return String(k).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+}
+
 class EmailService {
   constructor() {
     this.config = {
@@ -37,28 +41,36 @@ class EmailService {
       base_url: process.env.BASE_URL || 'http://localhost:3000'
     };
 
-    // SendGrid inicializálás
-    if (process.env.SENDGRID_API_KEY) {
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      this.initialized = true;
-      console.log('📧 Email Service initialized (SendGrid REST API)');
-      console.log(`   From: ${this.config.from_email}`);
-      console.log(`   Base URL: ${this.config.base_url}`);
-    } else {
+    this.primaryProvider = 'SENDGRID REST API';
+
+    const rawKey = process.env.SENDGRID_API_KEY || '';
+    const apiKey = cleanApiKey(rawKey);
+
+    if (!apiKey) {
       this.initialized = false;
-      console.error('❌ SENDGRID_API_KEY not configured!');
+      console.error('❌ SENDGRID_API_KEY not configured or invalid.');
+      return;
     }
+
+    if (/[\u0000-\u001F\u007F]/.test(rawKey)) {
+      console.warn('⚠️ SENDGRID_API_KEY tartalmazott vezérlőkaraktert (CR/LF/TAB). Tisztítva lett.');
+    }
+
+    sgMail.setApiKey(apiKey);
+    this.initialized = true;
+
+    console.log('📧 Email Service initialized (SendGrid REST API)');
+    console.log(`   From: ${this.config.from_email}`);
+    console.log(`   Base URL: ${this.config.base_url}`);
   }
 
   replacePlaceholders(template, data) {
     let result = template;
-    const allData = { ...this.config, ...data };
-    
+    const allData = { ...this.config, ...data }; // ← FIX
     Object.keys(allData).forEach(key => {
       const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, allData[key] || '');
+      result = result.replace(regex, String(allData[key] ?? ''));
     });
-    
     return result;
   }
 
@@ -68,7 +80,6 @@ class EmailService {
     }
 
     const template = emailTemplates[templateId];
-    
     if (!template) {
       throw new Error(`Template not found: ${templateId}`);
     }
@@ -79,37 +90,35 @@ class EmailService {
 
     const msg = {
       to: recipientEmail,
-      from: {
-        email: this.config.from_email,
-        name: this.config.company_name
-      },
-      subject: subject,
-      text: text,
-      html: html
+      from: { email: this.config.from_email, name: this.config.company_name },
+      subject,
+      text,
+      html
     };
 
     try {
       const response = await sgMail.send(msg);
-      
+      const res0 = response && response[0] ? response[0] : {};
+      const statusCode = res0.statusCode || 202;
+      const messageId = res0.headers ? res0.headers['x-message-id'] : undefined;
+
       console.log(`✅ Email sent via SENDGRID REST API: ${templateId} → ${recipientEmail}`);
-      console.log(`   Status: ${response[0].statusCode}`);
-      
+      console.log(`   Status: ${statusCode}`);
+
       return {
         success: true,
-        messageId: response[0].headers['x-message-id'],
+        messageId,
         provider: 'sendgrid',
         template: templateId,
         recipient: recipientEmail,
-        statusCode: response[0].statusCode
+        statusCode
       };
     } catch (error) {
-      console.error(`❌ SendGrid error:`, error.message);
-      
+      console.error('❌ SendGrid error:', error.message);
       if (error.response) {
-        console.error(`   Status: ${error.response.statusCode}`);
-        console.error(`   Body:`, JSON.stringify(error.response.body));
+        console.error('   Status:', error.response.statusCode);
+        try { console.error('   Body:', JSON.stringify(error.response.body)); } catch {}
       }
-      
       return {
         success: false,
         error: error.message,
@@ -125,14 +134,12 @@ class EmailService {
   }
 
   async sendTest(recipientEmail) {
-    return this.send('test', recipientEmail, {
-      message: 'Az email rendszer működik! ✅'
-    });
+    return this.send('test', recipientEmail, { message: 'Az email rendszer működik! ✅' });
   }
 
   async sendRegistrationConfirmation(user) {
     return this.send('reg_confirmation', user.email, {
-      first_name: user.name.split(' ')[0],
+      first_name: (user.name || '').split(' ')[0] || 'Felhasználó',
       action_url: `${this.config.base_url}/activate?token=${user.activationToken}`
     });
   }

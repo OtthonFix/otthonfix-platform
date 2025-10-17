@@ -1,6 +1,6 @@
 // models/User.js - Felhasználók (Mechanics + Clients)
-
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   // Közös mezők
@@ -20,6 +20,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+  password: {
+    type: String,
+    required: true,
+    minlength: 6,
+    select: false
   },
   role: {
     type: String,
@@ -89,9 +95,17 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1, online: 1 });
 userSchema.index({ location: '2dsphere' });
+
+// Password hash middleware
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
 
 // Update updatedAt before save
 userSchema.pre('save', function(next) {
@@ -130,6 +144,11 @@ userSchema.methods.toPublicJSON = function() {
     online: this.online,
     specialty: this.specialty
   };
+};
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = mongoose.model('User', userSchema);

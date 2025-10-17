@@ -1,4 +1,4 @@
-// OtthonFix Backend - MongoDB Version
+// OtthonFix Backend - MongoDB Version with JWT Auth
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -14,6 +14,9 @@ const Message = require('./models/Message');
 
 // Email Service
 const emailService = require('./emailService');
+
+// Auth Middleware
+const { protect, restrictTo } = require('./middleware/auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -44,9 +47,13 @@ function generateToken() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
+// ============ AUTH ROUTES ============
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
 // ============ API ENDPOINTS ============
 
-// Mechanic Registration
+// Mechanic Registration (DEPRECATED - use /api/auth/register)
 app.post('/api/mechanics/register', async (req, res) => {
   try {
     const { name, email, phone, categories, hourlyRate } = req.body;
@@ -55,17 +62,16 @@ app.post('/api/mechanics/register', async (req, res) => {
       return res.status(400).json({ error: 'Hiányzó adatok' });
     }
 
-    // Check if email exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ error: 'Ez az email cím már regisztrálva van' });
     }
 
-    // Create new mechanic
     const newMechanic = new User({
       name,
       email: email.toLowerCase(),
       phone,
+      password: 'tempPassword123',
       role: 'mechanic',
       categories,
       hourlyRate: parseInt(hourlyRate),
@@ -83,7 +89,6 @@ app.post('/api/mechanics/register', async (req, res) => {
 
     await newMechanic.save();
     
-    // Send confirmation email
     emailService.sendRegistrationConfirmation(newMechanic)
       .then(result => console.log('✅ Reg email sent:', result.success))
       .catch(err => console.error('❌ Email failed:', err.message));
@@ -100,11 +105,15 @@ app.post('/api/mechanics/register', async (req, res) => {
   }
 });
 
-// Update Mechanic Status (Online/Offline)
-app.put('/api/mechanics/:id/status', async (req, res) => {
+// Update Mechanic Status - PROTECTED
+app.put('/api/mechanics/:id/status', protect, async (req, res) => {
   try {
     const { id } = req.params;
     const { online } = req.body;
+    
+    if (req.user._id.toString() !== id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Csak a saját státuszod módosíthatod' });
+    }
     
     const mechanic = await User.findById(id);
     
@@ -127,10 +136,10 @@ app.put('/api/mechanics/:id/status', async (req, res) => {
   }
 });
 
-// Find Mechanics (Match Algorithm)
-app.post('/api/match', async (req, res) => {
+// Find Mechanics - PROTECTED
+app.post('/api/match', protect, async (req, res) => {
   try {
-    const { category, description, location, customerEmail, customerName } = req.body;
+    const { category, description, location } = req.body;
     
     if (!category) {
       return res.status(400).json({ error: 'Kategória megadása kötelező' });
@@ -138,7 +147,6 @@ app.post('/api/match', async (req, res) => {
 
     const clientLocation = location || { lat: 47.4979, lng: 19.0402 };
     
-    // Find available mechanics
     const mechanics = await User.find({
       role: 'mechanic',
       online: true,
@@ -152,7 +160,6 @@ app.post('/api/match', async (req, res) => {
       });
     }
 
-    // Calculate scores
     const scored = mechanics.map(mechanic => {
       const distance = calculateDistance(
         clientLocation.lat, clientLocation.lng,
@@ -172,13 +179,13 @@ app.post('/api/match', async (req, res) => {
 
     scored.sort((a, b) => b.score - a.score);
 
-    // Create order
     const order = new Order({
       category,
       description,
       location: clientLocation,
-      customerEmail: customerEmail || 'test@example.com',
-      customerName: customerName || 'Teszt Ügyfél',
+      customerId: req.user._id,
+      customerEmail: req.user.email,
+      customerName: req.user.name,
       status: 'pending',
       estimatedArrival: '30 perc',
       suggestedMechanics: scored.slice(0, 3).map(m => ({
@@ -202,11 +209,11 @@ app.post('/api/match', async (req, res) => {
   }
 });
 
-// Accept Order
-app.post('/api/orders/:orderId/accept', async (req, res) => {
+// Accept Order - PROTECTED (Mechanics only)
+app.post('/api/orders/:orderId/accept', protect, restrictTo('mechanic'), async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { mechanicId } = req.body;
+    const mechanicId = req.user._id;
     
     const order = await Order.findOne({ orderId });
     const mechanic = await User.findById(mechanicId);
@@ -219,7 +226,6 @@ app.post('/api/orders/:orderId/accept', async (req, res) => {
       return res.status(404).json({ error: 'Szerelő nem található' });
     }
     
-    // Update order
     order.status = 'accepted';
     order.mechanicId = mechanicId;
     order.mechanicName = mechanic.name;
@@ -227,11 +233,9 @@ app.post('/api/orders/:orderId/accept', async (req, res) => {
     order.estimatedArrival = '15 perc';
     await order.save();
     
-    // Update mechanic
     mechanic.activeOrders += 1;
     await mechanic.save();
     
-    // Socket.io notification
     io.emit(`order-${orderId}-accepted`, { 
       mechanic: mechanic.toPublicJSON(), 
       order 
@@ -249,10 +253,24 @@ app.post('/api/orders/:orderId/accept', async (req, res) => {
   }
 });
 
-// Get Order Messages
-app.get('/api/orders/:orderId/messages', async (req, res) => {
+// Get Order Messages - PROTECTED
+app.get('/api/orders/:orderId/messages', protect, async (req, res) => {
   try {
     const { orderId } = req.params;
+    
+    const order = await Order.findOne({ orderId });
+    if (!order) {
+      return res.status(404).json({ error: 'Megrendelés nem található' });
+    }
+    
+    const isCustomer = order.customerId && order.customerId.toString() === req.user._id.toString();
+    const isMechanic = order.mechanicId && order.mechanicId.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    
+    if (!isCustomer && !isMechanic && !isAdmin) {
+      return res.status(403).json({ error: 'Nincs jogosultságod ehhez a megrendeléshez' });
+    }
+    
     const messages = await Message.find({ orderId }).sort({ createdAt: 1 });
     res.json({ messages });
   } catch (error) {
@@ -261,7 +279,7 @@ app.get('/api/orders/:orderId/messages', async (req, res) => {
   }
 });
 
-// Get Mechanics List
+// Get Mechanics List - PUBLIC
 app.get('/api/mechanics', async (req, res) => {
   try {
     const { category, online } = req.query;
@@ -284,8 +302,8 @@ app.get('/api/mechanics', async (req, res) => {
   }
 });
 
-// Submit Review
-app.post('/api/orders/:orderId/review', async (req, res) => {
+// Submit Review - PROTECTED
+app.post('/api/orders/:orderId/review', protect, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { rating, comment } = req.body;
@@ -294,6 +312,10 @@ app.post('/api/orders/:orderId/review', async (req, res) => {
     
     if (!order || order.status !== 'completed') {
       return res.status(400).json({ error: 'Csak befejezett munkát lehet értékelni' });
+    }
+    
+    if (order.customerId && order.customerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Csak a saját megrendelésed értékelheted' });
     }
     
     if (order.review && order.review.rating) {
@@ -321,6 +343,29 @@ app.post('/api/orders/:orderId/review', async (req, res) => {
   } catch (error) {
     console.error('Review error:', error);
     res.status(500).json({ error: 'Értékelés rögzítése sikertelen' });
+  }
+});
+
+// Get My Orders - PROTECTED
+app.get('/api/orders/my-orders', protect, async (req, res) => {
+  try {
+    let query = {};
+    
+    if (req.user.role === 'mechanic') {
+      query.mechanicId = req.user._id;
+    } else if (req.user.role === 'client') {
+      query.customerId = req.user._id;
+    }
+    
+    const orders = await Order.find(query).sort({ createdAt: -1 });
+    
+    res.json({ 
+      success: true,
+      orders 
+    });
+  } catch (error) {
+    console.error('Get my orders error:', error);
+    res.status(500).json({ error: 'Megrendelések lekérése sikertelen' });
   }
 });
 
@@ -382,6 +427,7 @@ app.get('/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       database: 'Connected',
+      auth: 'JWT Enabled',
       stats: {
         totalMechanics,
         onlineMechanics,
@@ -460,6 +506,7 @@ server.listen(PORT, () => {
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   console.log(`
   ✅ OtthonFix Backend fut: ${baseUrl}
+  🔐 Authentication: JWT Enabled
   ✉️  Email system: ACTIVE
   📧 Email provider: SENDGRID REST API
   🗄️  Database: MongoDB Atlas
@@ -467,6 +514,7 @@ server.listen(PORT, () => {
   
   🔗 Endpoints:
      - Health: ${baseUrl}/health
+     - Auth: ${baseUrl}/api/auth/*
      - Email test: ${baseUrl}/api/email/test?email=your@email.com
      - Email verify: ${baseUrl}/api/email/verify
   `);
