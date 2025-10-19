@@ -4,627 +4,310 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OtthonFix - Budapesti Szerelő Platform</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-card: #ffffff;
-            --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
-            --text-dark: #1e293b;
-            --accent-gold: #f59e0b;
-            --accent-blue: #3b82f6;
-            --success: #10b981;
-            --border: #334155;
+            --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-card: #ffffff;
+            --text-primary: #ffffff; --text-secondary: #94a3b8; --text-dark: #1e293b;
+            --accent-gold: #f59e0b; --accent-blue: #3b82f6; --success: #10b981; --border: #334155;
         }
-
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-            color: var(--text-primary);
-            min-height: 100vh;
+            color: var(--text-primary); min-height: 100vh;
         }
-
         .header {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border); padding: 1rem 2rem;
+            position: sticky; top: 0; z-index: 100;
         }
-
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo-container { display: flex; align-items: center; gap: 1rem; cursor: pointer; }
+        .logo-placeholder {
+            width: 50px; height: 50px; background: rgba(255,255,255,0.1);
+            border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; color: var(--text-secondary);
         }
-
         .logo {
-            font-size: 1.75rem;
-            font-weight: 800;
+            font-size: 1.75rem; font-weight: 800;
             background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-blue) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            cursor: pointer;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
+        .header-actions { display: flex; align-items: center; gap: 1rem; }
+        .login-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 0.5rem 1.5rem; border-radius: 8px;
+            cursor: pointer; transition: all 0.3s; font-weight: 600;
         }
-
-        .screen {
-            display: none;
+        .login-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+        .user-info { display: none; align-items: center; gap: 1rem; }
+        .user-info.active { display: flex; }
+        .user-avatar {
+            width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white;
         }
-
-        .screen.active {
-            display: block;
+        .logout-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.3s;
         }
-
-        .home-screen {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-
+        .logout-btn:hover { background: rgba(255,71,87,0.2); border-color: rgba(255,71,87,0.4); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        .home-screen { text-align: center; padding: 4rem 2rem; }
         .home-title {
-            font-size: 3.5rem;
-            font-weight: 900;
-            margin-bottom: 1rem;
+            font-size: 3.5rem; font-weight: 900; margin-bottom: 1rem;
             background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-blue) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-
-        .home-subtitle {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 3rem;
-        }
-
-        .role-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
+        .home-subtitle { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+        .role-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; max-width: 900px; margin: 0 auto; }
         .role-card {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 3rem 2rem;
-            cursor: pointer;
-            transition: all 0.4s;
-            border: 2px solid transparent;
-            position: relative;
-            overflow: hidden;
+            background: var(--bg-card); border-radius: 20px; padding: 3rem 2rem; cursor: pointer;
+            transition: all 0.4s; border: 2px solid transparent; position: relative; overflow: hidden;
         }
-
         .role-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
             background: linear-gradient(90deg, var(--accent-gold), var(--accent-blue));
         }
-
-        .role-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            border-color: var(--accent-gold);
-        }
-
+        .role-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); border-color: var(--accent-gold); }
         .role-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
+            width: 80px; height: 80px; margin: 0 auto 1.5rem;
             background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5rem;
+            border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem;
         }
-
-        .role-card h2 {
-            color: var(--text-dark);
-            font-size: 1.75rem;
-            margin-bottom: 0.5rem;
+        .role-card h2 { color: var(--text-dark); font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .role-card p { color: #64748b; font-size: 1rem; }
+        .dashboard { padding: 2rem 0; }
+        .dashboard-header { text-align: center; margin-bottom: 3rem; }
+        .dashboard-header h1 {
+            font-size: 3rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem;
         }
-
-        .role-card p {
-            color: #64748b;
-            font-size: 1rem;
+        .dashboard-header p { color: var(--text-secondary); font-size: 1.2rem; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 3rem; }
+        .dashboard-card {
+            background: var(--bg-card); border-radius: 20px; padding: 2rem; cursor: pointer;
+            transition: all 0.4s; border: 2px solid transparent; position: relative; overflow: hidden;
         }
-
+        .dashboard-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-blue));
+        }
+        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); border-color: var(--accent-gold); }
+        .dashboard-card-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .dashboard-card h3 { color: var(--text-dark); font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .dashboard-card p { color: #64748b; }
         .form-card {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 3rem;
-            max-width: 600px;
-            margin: 0 auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: var(--bg-card); border-radius: 20px; padding: 3rem;
+            max-width: 600px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-
-        .form-card h2 {
-            color: var(--text-dark);
-            font-size: 2rem;
-            margin-bottom: 2rem;
-            text-align: center;
+        .form-card h2 { color: var(--text-dark); font-size: 2rem; margin-bottom: 2rem; text-align: center; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; color: var(--text-dark); font-weight: 600; margin-bottom: 0.5rem; }
+        .form-group input, .form-group textarea {
+            width: 100%; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 10px;
+            font-size: 1rem; transition: all 0.3s; background: #f8fafc; font-family: inherit;
         }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            color: var(--text-dark);
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.3s;
-            background: #f8fafc;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-            background: white;
-        }
-
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent-blue); background: white; }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .category-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem; }
         .category-btn {
-            background: #f8fafc;
-            border: 2px solid #e2e8f0;
-            padding: 1rem;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
+            background: #f8fafc; border: 2px solid #e2e8f0; padding: 1rem; border-radius: 10px;
+            cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
         }
-
-        .category-btn:hover {
-            border-color: var(--accent-blue);
-            background: #eff6ff;
-            transform: scale(1.05);
-        }
-
-        .category-btn.active {
-            border-color: var(--accent-blue);
-            background: #eff6ff;
-        }
-
-        .category-btn .icon {
-            font-size: 2rem;
-        }
-
-        .category-btn span {
-            color: var(--text-dark);
-            font-weight: 600;
-        }
-
+        .category-btn:hover { border-color: var(--accent-blue); background: #eff6ff; transform: scale(1.05); }
+        .category-btn.active { border-color: var(--accent-blue); background: #eff6ff; }
+        .category-btn .icon { font-size: 2rem; }
+        .category-btn span { color: var(--text-dark); font-weight: 600; }
         .submit-btn {
-            width: 100%;
-            padding: 1.25rem;
-            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            border: none;
-            border-radius: 10px;
-            color: white;
-            font-size: 1.125rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 1rem;
+            width: 100%; padding: 1.25rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border: none; border-radius: 10px; color: white; font-size: 1.125rem;
+            font-weight: 700; cursor: pointer; transition: all 0.3s; margin-top: 1rem;
         }
-
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4);
-        }
-
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4); }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .back-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 1rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 2rem;
-            transition: all 0.3s;
+            background: transparent; border: none; color: var(--text-secondary);
+            font-size: 1rem; cursor: pointer; display: flex; align-items: center;
+            gap: 0.5rem; margin-bottom: 2rem; transition: all 0.3s;
         }
-
-        .back-btn:hover {
-            color: var(--text-primary);
+        .back-btn:hover { color: var(--text-primary); }
+        .error-message { background: #fee; border: 2px solid #fcc; color: #c00; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; display: none; }
+        .error-message.active { display: block; }
+        .loading { display: none; text-align: center; padding: 2rem; color: var(--text-secondary); }
+        .loading.active { display: block; }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent-gold);
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 1rem;
         }
-
-        .list-header {
-            color: white;
-            margin-bottom: 2rem;
-            max-width: 1000px;
-            margin: 0 auto 2rem;
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 2000; align-items: center; justify-content: center;
         }
-
-        .list-header h2 {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white; border-radius: 20px; padding: 3rem; max-width: 450px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative;
         }
-
-        .list-header p {
-            color: var(--text-secondary);
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 2rem;
+            cursor: pointer; color: #999; transition: all 0.3s; width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
         }
-
+        .modal-close:hover { color: #333; transform: rotate(90deg); }
+        .modal-header { text-align: center; margin-bottom: 2rem; }
+        .modal-header h2 {
+            color: var(--text-dark); font-size: 2rem;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .mechanic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem; }
         .mechanic-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            gap: 2rem;
-            align-items: start;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-            max-width: 1000px;
-            margin-left: auto;
-            margin-right: auto;
-            margin-bottom: 1.5rem;
+            background: var(--bg-card); border-radius: 20px; padding: 2rem; cursor: pointer;
+            transition: all 0.4s; border: 2px solid transparent; position: relative; overflow: hidden;
         }
-
-        .mechanic-card:hover {
-            transform: translateX(10px);
-            border-color: var(--accent-gold);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        .mechanic-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-blue));
         }
-
-        .mechanic-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 16px;
-            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            flex-shrink: 0;
+        .mechanic-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); border-color: var(--accent-gold); }
+        .mechanic-avatar { font-size: 3rem; text-align: center; margin-bottom: 1rem; }
+        .mechanic-name { color: var(--text-dark); font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
+        .mechanic-category { color: var(--accent-blue); text-align: center; margin-bottom: 0.5rem; font-weight: 600; }
+        .mechanic-rating { text-align: center; color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 0.5rem; }
+        .mechanic-rate { text-align: center; color: var(--text-dark); font-size: 1.3rem; font-weight: 700; }
+        .mechanic-status { display: inline-block; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-top: 1rem; }
+        .mechanic-status.online { background: var(--success); color: white; }
+        .mechanic-status.offline { background: #6b7280; color: white; }
+        .chat-container {
+            background: var(--bg-card); border-radius: 20px; height: 600px;
+            display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-
-        .mechanic-info {
-            flex: 1;
-        }
-
-        .mechanic-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 1rem;
-        }
-
-        .mechanic-name {
-            color: var(--text-dark);
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
-        .status-badge {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        .mechanic-specialty {
-            color: #64748b;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .mechanic-stats {
-            display: flex;
-            gap: 2rem;
-            margin-bottom: 1.5rem;
-            color: var(--text-dark);
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .mechanic-actions {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .btn-primary {
-            flex: 1;
-            padding: 0.875rem 2rem;
-            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            border: none;
-            border-radius: 10px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(245, 158, 11, 0.4);
-        }
-
-        .btn-secondary {
-            padding: 0.875rem 1.5rem;
-            background: white;
-            border: 2px solid var(--accent-blue);
-            border-radius: 10px;
-            color: var(--accent-blue);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-secondary:hover {
-            background: var(--accent-blue);
-            color: white;
-        }
-
-        .match-card {
-            background: var(--bg-card);
-            border-radius: 20px;
-            padding: 3rem;
-            max-width: 600px;
-            margin: 4rem auto;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .success-icon {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 2rem;
-            background: linear-gradient(135deg, #10b981, #3b82f6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
-        .match-card h2 {
-            color: var(--text-dark);
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .match-card p {
-            color: #64748b;
-            font-size: 1.125rem;
-            margin-bottom: 2rem;
-        }
-
-        .matched-mechanic {
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 2rem;
-            margin: 2rem 0;
-        }
-
-        .matched-avatar {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .match-details {
-            text-align: left;
-            margin: 1.5rem 0;
-        }
-
-        .detail-row {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-            color: var(--text-dark);
-        }
-
-        .chat-screen {
-            max-width: 800px;
-            margin: 2rem auto;
-            height: calc(100vh - 200px);
-            display: flex;
-            flex-direction: column;
-        }
-
         .chat-header {
-            background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: 16px 16px 0 0;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .chat-avatar {
-            font-size: 2.5rem;
-        }
-
-        .chat-user-info h3 {
-            color: var(--text-dark);
-            font-size: 1.25rem;
-        }
-
-        .chat-user-info p {
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        .chat-messages {
-            flex: 1;
-            background: var(--bg-card);
-            padding: 2rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .message {
-            max-width: 70%;
-            padding: 1rem 1.5rem;
-            border-radius: 16px;
-        }
-
-        .message-received {
-            background: #f1f5f9;
-            color: var(--text-dark);
-            align-self: flex-start;
-            border-radius: 16px 16px 16px 4px;
-        }
-
-        .message-sent {
             background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            color: white;
-            align-self: flex-end;
-            border-radius: 16px 16px 4px 16px;
+            color: white; padding: 1.5rem; border-radius: 20px 20px 0 0; display: flex; align-items: center; gap: 1rem;
         }
-
-        .message-time {
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-top: 0.5rem;
+        .chat-header .avatar {
+            width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
         }
-
-        .chat-input {
-            background: var(--bg-card);
-            padding: 1.5rem;
-            border-radius: 0 0 16px 16px;
-            display: flex;
-            gap: 1rem;
-            border-top: 2px solid #e2e8f0;
+        .chat-messages { flex: 1; padding: 1.5rem; overflow-y: auto; background: #f8fafc; }
+        .message { margin-bottom: 1rem; display: flex; }
+        .message.sent { justify-content: flex-end; }
+        .message.received { justify-content: flex-start; }
+        .message-content { max-width: 70%; padding: 1rem; border-radius: 15px; }
+        .message.sent .message-content { background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue)); color: white; }
+        .message.received .message-content { background: white; color: var(--text-dark); border: 1px solid #e2e8f0; }
+        .message-time { font-size: 0.75rem; opacity: 0.7; display: block; margin-top: 0.5rem; }
+        .chat-input-container { padding: 1.5rem; background: white; border-radius: 0 0 20px 20px; display: flex; gap: 1rem; }
+        .chat-input-container input { flex: 1; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 25px; font-size: 1rem; }
+        .chat-input-container input:focus { outline: none; border-color: var(--accent-blue); }
+        .chat-send-btn {
+            padding: 1rem 2rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
+            border: none; border-radius: 25px; color: white; font-weight: 700; cursor: pointer; transition: all 0.3s;
         }
-
-        .chat-input input {
-            flex: 1;
-            padding: 1rem 1.5rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 25px;
-            font-size: 1rem;
-            background: #f8fafc;
-        }
-
-        .chat-input input:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-        }
-
-        .send-btn {
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue));
-            border: none;
-            border-radius: 25px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .send-btn:hover {
-            transform: scale(1.05);
-        }
-
+        .chat-send-btn:hover { transform: scale(1.05); }
         @media (max-width: 768px) {
-            .home-title {
-                font-size: 2.5rem;
-            }
+            .home-title { font-size: 2.5rem; }
+            .home-subtitle { font-size: 1rem; }
+            .role-cards { grid-template-columns: 1fr; }
+            .category-grid { grid-template-columns: 1fr; }
+            .logo-placeholder { width: 40px; height: 40px; font-size: 0.7rem; }
+            .mechanic-grid, .dashboard-grid { grid-template-columns: 1fr; }
+            .dashboard-header h1 { font-size: 2rem; }
             
-            .role-cards {
-                grid-template-columns: 1fr;
-            }
-
-            .category-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .mechanic-card {
-                flex-direction: column;
-            }
-
-            .mechanic-stats {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
+            /* Header responsive javítások */
+            .header { padding: 0.75rem 1rem; }
+            .logo { font-size: 1.25rem; }
+            .header-actions { gap: 0.5rem; }
+            .user-info { gap: 0.5rem; }
+            #userName { display: none; }
+            .login-btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+            .logout-btn { padding: 0.5rem 0.75rem; font-size: 0.9rem; }
+            .user-avatar { width: 35px; height: 35px; font-size: 0.9rem; }
+            
+            /* Form responsive */
+            .form-card { padding: 2rem 1.5rem; }
+            .container { padding: 1rem; }
+            .home-screen { padding: 2rem 1rem; }
+            
+            /* Chat responsive */
+            .chat-container { height: 500px; }
+            .chat-input-container { flex-direction: column; }
+            .chat-input-container input { width: 100%; }
+            .chat-send-btn { width: 100%; }
+        }
+        
+        @media (max-width: 480px) {
+            .logo-container { gap: 0.5rem; }
+            .logo { font-size: 1.1rem; }
+            .home-title { font-size: 2rem; }
+            .role-card { padding: 2rem 1.5rem; }
+            .role-icon { width: 60px; height: 60px; font-size: 2rem; }
+            .role-card h2 { font-size: 1.5rem; }
+            
+            .modal-content { padding: 2rem 1.5rem; width: 95%; }
+            .form-card h2 { font-size: 1.5rem; }
+            
+            .mechanic-card { padding: 1.5rem; }
+            .mechanic-name { font-size: 1.25rem; }
         }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo" onclick="showScreen('home')">OtthonFix</div>
+            <div class="logo-container" onclick="goHome()">
+                <div class="logo-placeholder">LOGO</div>
+                <div class="logo">OtthonFix</div>
+            </div>
+            <div class="header-actions">
+                <div class="user-info" id="userInfo">
+                    <div class="user-avatar" id="userAvatar">MB</div>
+                    <span id="userName"></span>
+                    <button class="logout-btn" onclick="logout()">Kijelentkezés</button>
+                </div>
+                <button class="login-btn" id="loginBtn" onclick="showLoginModal()">Bejelentkezés</button>
+            </div>
         </div>
     </header>
 
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeLoginModal()">×</button>
+            <div class="modal-header"><h2>🔐 Bejelentkezés</h2></div>
+            <div class="error-message" id="loginError"></div>
+            <div class="loading" id="loginLoading"><div class="spinner"></div><p>Bejelentkezés...</p></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email cím</label>
+                    <input type="email" id="login-email" required placeholder="pelda@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Jelszó</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="submit-btn">Bejelentkezés</button>
+            </form>
+        </div>
+    </div>
+
     <div class="container">
-        <!-- Home Screen -->
         <div id="home" class="screen active">
             <div class="home-screen">
                 <h1 class="home-title">OtthonFix</h1>
                 <p class="home-subtitle">Budapesti szerelők és ügyfelek találkozóhelye - valós időben</p>
-                
                 <div class="role-cards">
                     <div class="role-card" onclick="showScreen('mechanic-form')">
                         <div class="role-icon">🔧</div>
                         <h2>Szerelő vagyok</h2>
                         <p>Regisztrálj és kezdj el dolgozni új ügyfelekkel</p>
                     </div>
-                    
                     <div class="role-card" onclick="showScreen('client-form')">
                         <div class="role-icon">👤</div>
                         <h2>Szerelőt keresek</h2>
@@ -634,438 +317,668 @@
             </div>
         </div>
 
-        <!-- Mechanic Registration -->
+        <div id="mechanic-dashboard" class="screen">
+            <div class="dashboard">
+                <div class="dashboard-header">
+                    <h1>🔧 Szerelő Dashboard</h1>
+                    <p>Üdvözlünk vissza, <span id="mechanic-name-dashboard"></span>!</p>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card" onclick="showScreen('my-orders')">
+                        <div class="dashboard-card-icon">📋</div>
+                        <h3>Megrendeléseim</h3>
+                        <p>Aktuális és korábbi munkák</p>
+                    </div>
+                    <div class="dashboard-card" onclick="showScreen('my-profile')">
+                        <div class="dashboard-card-icon">👤</div>
+                        <h3>Profilom</h3>
+                        <p>Adatok és beállítások</p>
+                    </div>
+                    <div class="dashboard-card" onclick="showScreen('my-chat')">
+                        <div class="dashboard-card-icon">💬</div>
+                        <h3>Üzenetek</h3>
+                        <p>Chat az ügyfelekkel</p>
+                    </div>
+                    <div class="dashboard-card" onclick="alert('Statisztikák hamarosan!')">
+                        <div class="dashboard-card-icon">📊</div>
+                        <h3>Statisztikák</h3>
+                        <p>Bevételek és értékelések</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="client-dashboard" class="screen">
+            <div class="dashboard">
+                <div class="dashboard-header">
+                    <h1>👤 Ügyfél Dashboard</h1>
+                    <p>Üdvözlünk vissza, <span id="client-name-dashboard"></span>!</p>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card" onclick="showScreen('client-form')">
+                        <div class="dashboard-card-icon">🔍</div>
+                        <h3>Új Keresés</h3>
+                        <p>Találj szerelőt most</p>
+                    </div>
+                    <div class="dashboard-card" onclick="showScreen('my-orders')">
+                        <div class="dashboard-card-icon">📋</div>
+                        <h3>Megrendeléseim</h3>
+                        <p>Aktuális és korábbi munkák</p>
+                    </div>
+                    <div class="dashboard-card" onclick="showScreen('my-chat')">
+                        <div class="dashboard-card-icon">💬</div>
+                        <h3>Üzenetek</h3>
+                        <p>Chat a szerelőkkel</p>
+                    </div>
+                    <div class="dashboard-card" onclick="alert('Kedvencek hamarosan!')">
+                        <div class="dashboard-card-icon">⭐</div>
+                        <h3>Kedvencek</h3>
+                        <p>Mentett szerelők</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="mechanic-form" class="screen">
             <button class="back-btn" onclick="showScreen('home')">← Vissza</button>
             <div class="form-card">
                 <h2>Szerelő regisztráció</h2>
+                <div class="error-message" id="mechanicError"></div>
+                <div class="loading" id="mechanicLoading"><div class="spinner"></div><p>Regisztráció...</p></div>
                 <form id="mechanicForm">
                     <div class="form-group">
                         <label>Teljes név *</label>
                         <input type="text" id="mechanic-name" required placeholder="pl. Kovács János">
                     </div>
-                    
                     <div class="form-group">
                         <label>Email cím *</label>
                         <input type="email" id="mechanic-email" required placeholder="kovacs@email.com">
                     </div>
-                    
                     <div class="form-group">
                         <label>Telefonszám *</label>
                         <input type="tel" id="mechanic-phone" required placeholder="+36 20 123 4567">
                     </div>
-                    
+                    <div class="form-group">
+                        <label>Jelszó *</label>
+                        <input type="password" id="mechanic-password" required placeholder="Min. 6 karakter" minlength="6">
+                    </div>
                     <div class="form-group">
                         <label>Szakterület (választható több is) *</label>
-                        <div class="category-grid">
-                            <div class="category-btn" data-category="water" onclick="toggleCategory(this)">
-                                <span class="icon">💧</span>
-                                <span>Vízszerelés</span>
+                        <div class="category-grid" id="mechanic-categories">
+                            <div class="category-btn" data-category="water">
+                                <span class="icon">🚰</span><span>Vízszerelés</span>
                             </div>
-                            <div class="category-btn" data-category="electric" onclick="toggleCategory(this)">
-                                <span class="icon">⚡</span>
-                                <span>Villanyszerelés</span>
+                            <div class="category-btn" data-category="electric">
+                                <span class="icon">⚡</span><span>Villanyszerelés</span>
                             </div>
-                            <div class="category-btn" data-category="heating" onclick="toggleCategory(this)">
-                                <span class="icon">🔥</span>
-                                <span>Fűtés</span>
+                            <div class="category-btn" data-category="heating">
+                                <span class="icon">❄️</span><span>Klíma/Fűtés</span>
                             </div>
-                            <div class="category-btn" data-category="lock" onclick="toggleCategory(this)">
-                                <span class="icon">🔐</span>
-                                <span>Zárjavítás</span>
+                            <div class="category-btn" data-category="lock">
+                                <span class="icon">🔑</span><span>Lakatos</span>
                             </div>
                         </div>
                     </div>
-                    
                     <div class="form-group">
                         <label>Óradíj (Ft) *</label>
-                        <input type="number" id="mechanic-rate" required placeholder="8000">
+                        <input type="number" id="mechanic-rate" required placeholder="8000" min="1000">
                     </div>
-                    
-                    <button type="submit" class="submit-btn">Regisztráció</button>
+                    <button type="submit" class="submit-btn" id="mechanicSubmitBtn">Regisztráció</button>
                 </form>
             </div>
         </div>
 
-        <!-- Client Form -->
         <div id="client-form" class="screen">
-            <button class="back-btn" onclick="showScreen('home')">← Vissza</button>
+            <button class="back-btn" onclick="goHome()">← Vissza</button>
             <div class="form-card">
                 <h2>Milyen problémád van?</h2>
+                <div class="error-message" id="clientError"></div>
+                <div class="loading" id="clientLoading"><div class="spinner"></div><p>Keresés...</p></div>
                 <form id="clientForm">
                     <div class="form-group">
                         <label>Válaszd ki a szolgáltatást *</label>
-                        <div class="category-grid">
-                            <div class="category-btn" data-category="water" onclick="selectCategory(this)">
-                                <span class="icon">💧</span>
-                                <span>Vízszerelés</span>
+                        <div class="category-grid" id="client-categories">
+                            <div class="category-btn" data-category="water">
+                                <span class="icon">🚰</span><span>Vízszerelés</span>
                             </div>
-                            <div class="category-btn" data-category="electric" onclick="selectCategory(this)">
-                                <span class="icon">⚡</span>
-                                <span>Villanyszerelés</span>
+                            <div class="category-btn" data-category="electric">
+                                <span class="icon">⚡</span><span>Villanyszerelés</span>
                             </div>
-                            <div class="category-btn" data-category="heating" onclick="selectCategory(this)">
-                                <span class="icon">🔥</span>
-                                <span>Fűtés</span>
+                            <div class="category-btn" data-category="heating">
+                                <span class="icon">❄️</span><span>Klíma/Fűtés</span>
                             </div>
-                            <div class="category-btn" data-category="lock" onclick="selectCategory(this)">
-                                <span class="icon">🔐</span>
-                                <span>Zárjavítás</span>
+                            <div class="category-btn" data-category="lock">
+                                <span class="icon">🔑</span><span>Lakatos</span>
                             </div>
                         </div>
                     </div>
-                    
                     <div class="form-group">
                         <label>Rövid leírás *</label>
-                        <input type="text" id="client-description" required placeholder="pl. A csap folyamatosan csöpög...">
+                        <textarea id="client-description" required placeholder="pl. A csap folyamatosan csöpög..."></textarea>
                     </div>
-                    
-                    <button type="submit" class="submit-btn">Keresés indítása</button>
+                    <button type="submit" class="submit-btn" id="clientSubmitBtn">Keresés indítása</button>
                 </form>
             </div>
         </div>
 
-        <!-- Mechanic List -->
         <div id="mechanic-list" class="screen">
-            <button class="back-btn" onclick="showScreen('client-form')">← Vissza</button>
-            <div class="list-header">
-                <h2>Elérhető szerelők a közeledben</h2>
-                <p>Válassz a szakemberek közül, akik jelenleg online vannak</p>
+            <button class="back-btn" onclick="goHome()">← Vissza</button>
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="font-size: 2.5rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Elérhető Szerelők</h1>
+                <p style="color: var(--text-secondary); font-size: 1.2rem;">Válaszd ki a számodra megfelelő szerelőt!</p>
             </div>
-            
-            <div class="mechanic-card">
-                <div class="mechanic-avatar">👨‍🔧</div>
-                <div class="mechanic-info">
-                    <div class="mechanic-header">
-                        <div>
-                            <div class="mechanic-name">Kovács János</div>
-                            <div class="mechanic-specialty">Vízszerelő mester</div>
-                        </div>
-                        <span class="status-badge">🟢 Online</span>
-                    </div>
-                    
-                    <div class="mechanic-stats">
-                        <div class="stat-item">
-                            <span>⭐</span>
-                            <span><strong>4.9</strong> (127 értékelés)</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>📍</span>
-                            <span><strong>1.2 km</strong> távolság</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>💰</span>
-                            <span><strong>8,000 Ft/óra</strong></span>
-                        </div>
-                    </div>
-                    
-                    <div class="mechanic-actions">
-                        <button class="btn-primary" onclick="selectMechanic('Kovács János', '👨‍🔧')">
-                            <span>💬</span>
-                            <span>Választom</span>
-                        </button>
-                        <button class="btn-secondary">📞 Hívás</button>
-                    </div>
+            <div class="mechanic-grid">
+                <div class="mechanic-card" onclick="showChatWithMechanic('Kovács János')">
+                    <div class="mechanic-avatar">👨‍🔧</div>
+                    <div class="mechanic-name">Kovács János</div>
+                    <div class="mechanic-category">🚰 Vízszerelő</div>
+                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (4.9)</div>
+                    <div class="mechanic-rate">6,000 Ft/óra</div>
+                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
                 </div>
-            </div>
-
-            <div class="mechanic-card">
-                <div class="mechanic-avatar">⚡</div>
-                <div class="mechanic-info">
-                    <div class="mechanic-header">
-                        <div>
-                            <div class="mechanic-name">Nagy Péter</div>
-                            <div class="mechanic-specialty">Villanyszerelő</div>
-                        </div>
-                        <span class="status-badge">🟢 Online</span>
-                    </div>
-                    
-                    <div class="mechanic-stats">
-                        <div class="stat-item">
-                            <span>⭐</span>
-                            <span><strong>4.8</strong> (203 értékelés)</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>📍</span>
-                            <span><strong>2.1 km</strong> távolság</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>💰</span>
-                            <span><strong>9,500 Ft/óra</strong></span>
-                        </div>
-                    </div>
-                    
-                    <div class="mechanic-actions">
-                        <button class="btn-primary" onclick="selectMechanic('Nagy Péter', '⚡')">
-                            <span>💬</span>
-                            <span>Választom</span>
-                        </button>
-                        <button class="btn-secondary">📞 Hívás</button>
-                    </div>
+                <div class="mechanic-card" onclick="showChatWithMechanic('Nagy Péter')">
+                    <div class="mechanic-avatar">👨‍🔧</div>
+                    <div class="mechanic-name">Nagy Péter</div>
+                    <div class="mechanic-category">⚡ Villanyszerelő</div>
+                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (5.0)</div>
+                    <div class="mechanic-rate">7,500 Ft/óra</div>
+                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
                 </div>
-            </div>
-
-            <div class="mechanic-card">
-                <div class="mechanic-avatar">🔥</div>
-                <div class="mechanic-info">
-                    <div class="mechanic-header">
-                        <div>
-                            <div class="mechanic-name">Tóth András</div>
-                            <div class="mechanic-specialty">Fűtésszerelő</div>
-                        </div>
-                        <span class="status-badge">🟢 Online</span>
-                    </div>
-                    
-                    <div class="mechanic-stats">
-                        <div class="stat-item">
-                            <span>⭐</span>
-                            <span><strong>4.7</strong> (89 értékelés)</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>📍</span>
-                            <span><strong>3.5 km</strong> távolság</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>💰</span>
-                            <span><strong>7,500 Ft/óra</strong></span>
-                        </div>
-                    </div>
-                    
-                    <div class="mechanic-actions">
-                        <button class="btn-primary" onclick="selectMechanic('Tóth András', '🔥')">
-                            <span>💬</span>
-                            <span>Választom</span>
-                        </button>
-                        <button class="btn-secondary">📞 Hívás</button>
-                    </div>
+                <div class="mechanic-card" onclick="showChatWithMechanic('Szabó István')">
+                    <div class="mechanic-avatar">👨‍🔧</div>
+                    <div class="mechanic-name">Szabó István</div>
+                    <div class="mechanic-category">❄️ Klíma szerelő</div>
+                    <div class="mechanic-rating">⭐⭐⭐⭐ (4.7)</div>
+                    <div class="mechanic-rate">8,000 Ft/óra</div>
+                    <div style="text-align: center;"><span class="mechanic-status offline">Offline</span></div>
+                </div>
+                <div class="mechanic-card" onclick="showChatWithMechanic('Tóth András')">
+                    <div class="mechanic-avatar">👨‍🔧</div>
+                    <div class="mechanic-name">Tóth András</div>
+                    <div class="mechanic-category">🔑 Lakatos</div>
+                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (4.8)</div>
+                    <div class="mechanic-rate">6,500 Ft/óra</div>
+                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- Match Screen -->
-        <div id="match" class="screen">
-            <div class="match-card">
-                <div class="success-icon">✓</div>
-                <h2>Sikeres párosítás!</h2>
-                <p id="match-text">Kovács János szerelő elfogadta a kérésedet</p>
-                
-                <div class="matched-mechanic">
-                    <div class="matched-avatar" id="matched-avatar">👨‍🔧</div>
-                    <div class="mechanic-name" id="matched-name">Kovács János</div>
-                    <div class="mechanic-specialty">Vízszerelő mester</div>
-                    
-                    <div class="match-details">
-                        <div class="detail-row">
-                            <span>⭐</span>
-                            <span>4.9 értékelés (127 vélemény)</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>📍</span>
-                            <span>1.2 km távolságra van</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>⏱️</span>
-                            <span>Becsült érkezés: 15 perc</span>
-                        </div>
-                    </div>
-                    
-                    <div class="mechanic-actions">
-                        <button class="btn-primary" onclick="showScreen('chat')">
-                            <span>💬</span>
-                            <span>Chat indítása</span>
-                        </button>
-                        <button class="btn-secondary">📞 Hívás</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Screen -->
         <div id="chat" class="screen">
-            <button class="back-btn" onclick="showScreen('match')">← Vissza</button>
-            
-            <div class="chat-screen">
+            <button class="back-btn" onclick="showScreen('mechanic-list')">← Vissza a listához</button>
+            <div class="chat-container">
                 <div class="chat-header">
-                    <div class="chat-avatar" id="chat-avatar">👨‍🔧</div>
-                    <div class="chat-user-info">
-                        <h3 id="chat-name">Kovács János</h3>
-                        <p>🟢 Online</p>
+                    <div class="avatar">👨‍🔧</div>
+                    <div>
+                        <h3 id="chat-mechanic-name" style="margin-bottom: 0.25rem;">Kovács János</h3>
+                        <div style="font-size: 0.9rem; opacity: 0.9;">🟢 Elérhető</div>
                     </div>
                 </div>
-                
-                <div class="chat-messages" id="chat-messages">
-                    <div class="message message-received">
-                        <div>Szia! Megkaptam a hívást. Pontosan mi a probléma?</div>
-                        <div class="message-time">10:23</div>
-                    </div>
-                    
-                    <div class="message message-sent">
-                        <div>A fürdőszoba csapja folyamatosan csöpög.</div>
-                        <div class="message-time">10:24</div>
-                    </div>
-                    
-                    <div class="message message-received">
-                        <div>Értem. 15 percen belül ott leszek. Kell hoznom cserealkatrészt?</div>
-                        <div class="message-time">10:25</div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message received">
+                        <div class="message-content">
+                            <p>Szia! Miben segíthetek?</p>
+                            <span class="message-time">10:30</span>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="chat-input">
-                    <input type="text" id="message-input" placeholder="Írj üzenetet..." onkeypress="handleEnter(event)">
-                    <button class="send-btn" onclick="sendMessage()">Küldés</button>
+                <div class="chat-input-container">
+                    <input type="text" id="chatInput" placeholder="Írj egy üzenetet..." onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button class="chat-send-btn" onclick="sendMessage()">Küldés</button>
                 </div>
             </div>
         </div>
 
-        <!-- Success Screen (Registration) -->
-        <div id="success" class="screen">
-            <div class="match-card">
-                <div class="success-icon">✓</div>
-                <h2>Sikeres regisztráció!</h2>
-                <p id="success-text">Köszönjük a regisztrációt. Hamarosan aktiválódik a profilod.</p>
-                <button class="submit-btn" onclick="showScreen('home')">Vissza a főoldalra</button>
+        <div id="my-orders" class="screen">
+            <button class="back-btn" onclick="goHome()">← Vissza</button>
+            <div class="form-card" style="text-align: center;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+                <h2>Megrendeléseim</h2>
+                <p style="color: #64748b; margin: 2rem 0;">Ez a funkció hamarosan elérhető lesz!</p>
+            </div>
+        </div>
+
+        <div id="my-profile" class="screen">
+            <button class="back-btn" onclick="goHome()">← Vissza</button>
+            <div class="form-card" style="text-align: center;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">👤</div>
+                <h2>Profilom</h2>
+                <p style="color: #64748b; margin: 2rem 0;">Ez a funkció hamarosan elérhető lesz!</p>
+            </div>
+        </div>
+
+        <div id="my-chat" class="screen">
+            <button class="back-btn" onclick="goHome()">← Vissza</button>
+            <div class="form-card" style="text-align: center;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">💬</div>
+                <h2>Üzenetek</h2>
+                <p style="color: #64748b; margin: 2rem 0;">Ez a funkció hamarosan elérhető lesz!</p>
             </div>
         </div>
     </div>
 
     <script>
+        // FEJLESZTŐI MÓD
+        const DEV_MODE = false;
+        
+        // 🔥 BACKEND URL - Render Production
+        const API_URL = 'https://otthonfix-platform.onrender.com/api';
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
         let selectedCategories = [];
         let selectedClientCategory = null;
-        let currentMechanic = { name: 'Kovács János', avatar: '👨‍🔧' };
+        let socket = null;
+
+        async function apiCall(endpoint, options = {}) {
+            // FEJLESZTŐI MÓD - mock válaszok
+            if (DEV_MODE) {
+                console.log('🧪 DEV MODE - Mock API Call:', endpoint);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                if (endpoint === '/auth/register') {
+                    const body = JSON.parse(options.body);
+                    return {
+                        token: 'mock_token_' + Date.now(),
+                        user: {
+                            id: 'mock_' + Date.now(),
+                            name: body.name,
+                            email: body.email,
+                            role: body.role
+                        }
+                    };
+                }
+                if (endpoint === '/auth/login') {
+                    return {
+                        token: 'mock_token_' + Date.now(),
+                        user: {
+                            id: 'mock_user',
+                            name: 'Teszt Felhasználó',
+                            email: 'test@test.hu',
+                            role: 'client'
+                        }
+                    };
+                }
+                if (endpoint === '/match') {
+                    return { mechanics: [], message: 'Mock keresés sikeres' };
+                }
+                return { success: true };
+            }
+            
+            // NORMÁL MÓD - valódi API hívás
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                },
+                ...options
+            };
+            try {
+                console.log('🔄 API Call:', endpoint, options.body ? JSON.parse(options.body) : '');
+                const response = await fetch(`${API_URL}${endpoint}`, config);
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    console.error('❌ JSON parse error:', e);
+                    throw new Error('A szerver nem elérhető vagy hibás választ adott');
+                }
+                
+                console.log('📥 API Response:', response.status, data);
+                
+                if (!response.ok) {
+                    const errorMsg = data.error || data.errors?.[0]?.msg || data.message || `Hiba történt (${response.status})`;
+                    throw new Error(errorMsg);
+                }
+                return data;
+            } catch (error) {
+                console.error('❌ API Error:', error.message);
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    throw new Error('Nem sikerült kapcsolódni a szerverhez. Ellenőrizd a hálózati kapcsolatot!');
+                }
+                throw error;
+            }
+        }
+
+        function saveAuth(token, user) {
+            authToken = token;
+            currentUser = user;
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            updateUserUI();
+            connectSocket();
+            goToDashboard();
+            console.log('✅ Auth saved:', user.name);
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            disconnectSocket();
+            updateUserUI();
+            showScreen('home');
+            console.log('✅ Logged out');
+        }
+
+        function updateUserUI() {
+            const userInfo = document.getElementById('userInfo');
+            const userName = document.getElementById('userName');
+            const userAvatar = document.getElementById('userAvatar');
+            const loginBtn = document.getElementById('loginBtn');
+            if (currentUser) {
+                userInfo.classList.add('active');
+                userName.textContent = currentUser.name;
+                const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                userAvatar.textContent = initials;
+                loginBtn.style.display = 'none';
+            } else {
+                userInfo.classList.remove('active');
+                loginBtn.style.display = 'block';
+            }
+        }
+
+        function connectSocket() {
+            if (!authToken) {
+                console.log('⚠️ No token, socket not connected');
+                return;
+            }
+            // 🔥 SOCKET URL - Render Production
+            socket = io('https://otthonfix-platform.onrender.com', {
+                auth: { token: authToken },
+                transports: ['websocket', 'polling']
+            });
+            socket.on('connect', () => { console.log('✅ Socket connected:', socket.id); });
+            socket.on('disconnect', () => { console.log('⚠️ Socket disconnected'); });
+            socket.on('error', (error) => { console.error('❌ Socket error:', error); });
+            socket.on('message', (message) => {
+                console.log('📨 New message:', message);
+                displayMessage(message);
+            });
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                console.log('✅ Socket disconnected');
+            }
+        }
+
+        function goHome() {
+            if (currentUser) {
+                goToDashboard();
+            } else {
+                showScreen('home');
+            }
+        }
+
+        function goToDashboard() {
+            if (!currentUser) {
+                showScreen('home');
+                return;
+            }
+            if (currentUser.role === 'mechanic') {
+                document.getElementById('mechanic-name-dashboard').textContent = currentUser.name;
+                showScreen('mechanic-dashboard');
+            } else {
+                document.getElementById('client-name-dashboard').textContent = currentUser.name;
+                showScreen('client-dashboard');
+            }
+        }
 
         function showScreen(screenId) {
             console.log('Navigálás:', screenId);
             const screens = document.querySelectorAll('.screen');
             screens.forEach(screen => screen.classList.remove('active'));
-            
             const targetScreen = document.getElementById(screenId);
             if (targetScreen) {
                 targetScreen.classList.add('active');
             }
         }
 
-        function toggleCategory(element) {
-            element.classList.toggle('active');
-            const category = element.getAttribute('data-category');
-            
-            if (element.classList.contains('active')) {
-                if (!selectedCategories.includes(category)) {
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').classList.remove('active');
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('Login submit');
+            showLoading('loginLoading', true);
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const result = await apiCall('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+                console.log('✅ Login success:', result);
+                saveAuth(result.token, result.user);
+                closeLoginModal();
+            } catch (error) {
+                console.error('❌ Login error:', error);
+                showError('loginError', 'Hibás email vagy jelszó!');
+            } finally {
+                showLoading('loginLoading', false);
+            }
+        });
+
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.add('active');
+                setTimeout(() => { errorEl.classList.remove('active'); }, 5000);
+            }
+        }
+
+        function showLoading(elementId, show) {
+            const loadingEl = document.getElementById(elementId);
+            if (loadingEl) {
+                if (show) {
+                    loadingEl.classList.add('active');
+                } else {
+                    loadingEl.classList.remove('active');
+                }
+            }
+        }
+
+        document.querySelectorAll('#mechanic-categories .category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                if (this.classList.contains('active')) {
+                    this.classList.remove('active');
+                    selectedCategories = selectedCategories.filter(c => c !== category);
+                } else {
+                    this.classList.add('active');
                     selectedCategories.push(category);
                 }
-            } else {
-                selectedCategories = selectedCategories.filter(c => c !== category);
-            }
-            
-            console.log('Kiválasztott kategóriák:', selectedCategories);
-        }
+                console.log('Kiválasztott kategóriák:', selectedCategories);
+            });
+        });
 
-        function selectCategory(element) {
-            const allButtons = document.querySelectorAll('#client-form .category-btn');
-            allButtons.forEach(btn => btn.classList.remove('active'));
-            
-            element.classList.add('active');
-            selectedClientCategory = element.getAttribute('data-category');
-            
-            console.log('Kiválasztott kategória:', selectedClientCategory);
-        }
+        document.querySelectorAll('#client-categories .category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                document.querySelectorAll('#client-categories .category-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                this.classList.add('active');
+                selectedClientCategory = category;
+                console.log('Kiválasztott kategória:', selectedClientCategory);
+            });
+        });
 
-        function selectMechanic(name, avatar) {
-            console.log('Szerelő kiválasztva:', name);
-            currentMechanic = { name, avatar };
-            
-            document.getElementById('match-text').textContent = `${name} szerelő elfogadta a kérésedet`;
-            document.getElementById('matched-name').textContent = name;
-            document.getElementById('matched-avatar').textContent = avatar;
-            document.getElementById('chat-name').textContent = name;
-            document.getElementById('chat-avatar').textContent = avatar;
-            
-            showScreen('match');
-        }
-
-        document.getElementById('mechanicForm').addEventListener('submit', function(e) {
+        document.getElementById('mechanicForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             console.log('Szerelő regisztráció submit');
-            
+            const submitBtn = document.getElementById('mechanicSubmitBtn');
+            submitBtn.disabled = true;
+            showLoading('mechanicLoading', true);
             const name = document.getElementById('mechanic-name').value;
             const email = document.getElementById('mechanic-email').value;
             const phone = document.getElementById('mechanic-phone').value;
-            const rate = document.getElementById('mechanic-rate').value;
-            
+            const password = document.getElementById('mechanic-password').value;
+            const hourlyRate = document.getElementById('mechanic-rate').value;
             if (selectedCategories.length === 0) {
-                alert('Kérlek válassz legalább egy szakterületet!');
+                showError('mechanicError', 'Kérlek válassz legalább egy szakterületet!');
+                submitBtn.disabled = false;
+                showLoading('mechanicLoading', false);
                 return;
             }
-            
-            console.log('Regisztráció adatok:', { name, email, phone, rate, categories: selectedCategories });
-            
-            document.getElementById('success-text').textContent = 
-                `Köszönjük ${name}! A regisztrációdat feldolgoztuk. Hamarosan aktiválódik a profilod.`;
-            
-            showScreen('success');
-            
-            document.getElementById('mechanicForm').reset();
-            selectedCategories = [];
-            const allButtons = document.querySelectorAll('#mechanic-form .category-btn');
-            allButtons.forEach(btn => btn.classList.remove('active'));
+            try {
+                const result = await apiCall('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name, email, phone, password,
+                        role: 'mechanic',
+                        categories: selectedCategories,
+                        hourlyRate: parseInt(hourlyRate),
+                        location: { lat: 47.4979, lng: 19.0402 }
+                    })
+                });
+                console.log('✅ Registration success:', result);
+                saveAuth(result.token, result.user);
+                document.getElementById('mechanicForm').reset();
+                selectedCategories = [];
+                document.querySelectorAll('#mechanic-categories .category-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+            } catch (error) {
+                console.error('❌ Registration error:', error);
+                showError('mechanicError', error.message);
+            } finally {
+                submitBtn.disabled = false;
+                showLoading('mechanicLoading', false);
+            }
         });
 
-        document.getElementById('clientForm').addEventListener('submit', function(e) {
+        document.getElementById('clientForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             console.log('Ügyfél keresés submit');
-            
+            const submitBtn = document.getElementById('clientSubmitBtn');
+            submitBtn.disabled = true;
+            showLoading('clientLoading', true);
             const description = document.getElementById('client-description').value;
-            
             if (!selectedClientCategory) {
-                alert('Kérlek válassz egy kategóriát!');
+                showError('clientError', 'Kérlek válassz egy kategóriát!');
+                submitBtn.disabled = false;
+                showLoading('clientLoading', false);
                 return;
             }
-            
-            console.log('Keresés adatok:', { category: selectedClientCategory, description });
-            
-            showScreen('mechanic-list');
+            if (!authToken) {
+                try {
+                    const guestEmail = `guest${Date.now()}@otthonfix.com`;
+                    const result = await apiCall('/auth/register', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: 'Vendég Ügyfél',
+                            email: guestEmail,
+                            phone: '+36301234567',
+                            password: 'guest123456',
+                            role: 'client'
+                        })
+                    });
+                    saveAuth(result.token, result.user);
+                    console.log('✅ Guest client registered');
+                } catch (error) {
+                    console.error('❌ Guest registration error:', error);
+                    showError('clientError', 'Regisztráció sikertelen: ' + error.message);
+                    submitBtn.disabled = false;
+                    showLoading('clientLoading', false);
+                    return;
+                }
+            }
+            try {
+                const matchResult = await apiCall('/match', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        category: selectedClientCategory,
+                        description: description,
+                        location: { lat: 47.4979, lng: 19.0402 }
+                    })
+                });
+                console.log('✅ Match result:', matchResult);
+                showScreen('mechanic-list');
+            } catch (error) {
+                console.error('❌ Match error:', error);
+                showScreen('mechanic-list');
+            } finally {
+                submitBtn.disabled = false;
+                showLoading('clientLoading', false);
+            }
         });
 
         function sendMessage() {
-            const input = document.getElementById('message-input');
+            const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            
             if (message === '') return;
-            
-            const messagesContainer = document.getElementById('chat-messages');
-            const now = new Date();
-            const time = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message message-sent';
-            messageDiv.innerHTML = `
-                <div>${message}</div>
-                <div class="message-time">${time}</div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            input.value = '';
-            
-            setTimeout(() => {
-                const responseDiv = document.createElement('div');
-                responseDiv.className = 'message message-received';
-                responseDiv.innerHTML = `
-                    <div>Rendben, megértettem. Indulok is!</div>
-                    <div class="message-time">${time}</div>
-                `;
-                messagesContainer.appendChild(responseDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }, 2000);
-        }
-
-        function handleEnter(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
+            if (!socket || !socket.connected) {
+                console.log('⚠️ Cannot send message - no socket connection');
+                alert('Nincs kapcsolat! Próbáld újra bejelentkezni.');
+                return;
             }
+            const currentOrderId = 'ORDER_' + Date.now();
+            socket.emit('sendMessage', {
+                orderId: currentOrderId,
+                text: message
+            }, (response) => {
+                if (response && response.success) {
+                    console.log('✅ Message sent:', response.message);
+                    displayMessage(response.message);
+                    input.value = '';
+                } else {
+                    console.error('❌ Message send failed:', response?.error);
+                    alert('Üzenet küldése sikertelen: ' + (response?.error || 'Ismeretlen hiba'));
+                }
+            });
         }
 
-        console.log('✅ OtthonFix Platform betöltve - TELJES verzió szerelőkkel!');
+        function displayMessage(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            if (!chatMessages) return;
+            const messageDiv = document.createElement('div');
+            messageDiv.className = message.sender === currentUser?.id ? 'message sent' : 'message received';
+            const time = new Date(message.timestamp).toLocaleTimeString('hu-HU', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <p>${escapeHtml(message.text)}</p>
+                    <span class="message-time">${time}</span>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showChatWithMechanic(mechanicName) {
+            document.getElementById('chat-mechanic-name').textContent = mechanicName;
+            showScreen('chat');
+        }
+
+        if (authToken && currentUser) {
+            console.log('✅ User already logged in:', currentUser.name);
+            updateUserUI();
+            connectSocket();
+            goToDashboard();
+        }
+
+        console.log('✅ OtthonFix Platform loaded!');
+        console.log('🔗 API URL:', API_URL);
     </script>
 </body>
 </html>
