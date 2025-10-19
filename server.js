@@ -51,6 +51,10 @@ function generateToken() {
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+// ============ MESSAGE ROUTES ============
+const messageRoutes = require('./routes/messages');
+app.use('/api/messages', messageRoutes);
+
 // ============ API ENDPOINTS ============
 
 // Mechanic Registration (DEPRECATED - use /api/auth/register)
@@ -445,59 +449,8 @@ app.get('/health', async (req, res) => {
 
 // ============ SOCKET.IO ============
 
-io.on('connection', (socket) => {
-  console.log('Új kapcsolat:', socket.id);
-  
-  socket.on('mechanic-online', async (mechanicId) => {
-    try {
-      const mechanic = await User.findById(mechanicId);
-      if (mechanic && mechanic.role === 'mechanic') {
-        mechanic.online = true;
-        mechanic.socketId = socket.id;
-        await mechanic.save();
-        io.emit('mechanic-status-changed', { mechanicId, online: true });
-      }
-    } catch (error) {
-      console.error('Socket mechanic-online error:', error);
-    }
-  });
-  
-  socket.on('mechanic-offline', async (mechanicId) => {
-    try {
-      const mechanic = await User.findById(mechanicId);
-      if (mechanic && mechanic.role === 'mechanic') {
-        mechanic.online = false;
-        mechanic.socketId = null;
-        await mechanic.save();
-        io.emit('mechanic-status-changed', { mechanicId, online: false });
-      }
-    } catch (error) {
-      console.error('Socket mechanic-offline error:', error);
-    }
-  });
-  
-  socket.on('send-message', async (data) => {
-    try {
-      const { orderId, senderId, senderType, message } = data;
-      
-      const newMessage = new Message({
-        orderId,
-        senderId,
-        senderType,
-        message
-      });
-      
-      await newMessage.save();
-      io.emit(`order-${orderId}-message`, newMessage);
-    } catch (error) {
-      console.error('Socket send-message error:', error);
-    }
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('Kapcsolat bontva:', socket.id);
-  });
-});
+const chatHandler = require('./sockets/chatHandler');
+chatHandler(io);
 
 // ============ SERVER START ============
 
