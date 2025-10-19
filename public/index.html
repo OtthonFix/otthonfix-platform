@@ -324,7 +324,7 @@
                     <p>Üdvözlünk vissza, <span id="mechanic-name-dashboard"></span>!</p>
                 </div>
                 <div class="dashboard-grid">
-                    <div class="dashboard-card" onclick="showScreen('my-orders')">
+                    <div class="dashboard-card" onclick="showMyOrders()">
                         <div class="dashboard-card-icon">📋</div>
                         <h3>Megrendeléseim</h3>
                         <p>Aktuális és korábbi munkák</p>
@@ -360,7 +360,7 @@
                         <h3>Új Keresés</h3>
                         <p>Találj szerelőt most</p>
                     </div>
-                    <div class="dashboard-card" onclick="showScreen('my-orders')">
+                    <div class="dashboard-card" onclick="showMyOrders()">
                         <div class="dashboard-card-icon">📋</div>
                         <h3>Megrendeléseim</h3>
                         <p>Aktuális és korábbi munkák</p>
@@ -467,39 +467,12 @@
                 <h1 style="font-size: 2.5rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Elérhető Szerelők</h1>
                 <p style="color: var(--text-secondary); font-size: 1.2rem;">Válaszd ki a számodra megfelelő szerelőt!</p>
             </div>
-            <div class="mechanic-grid">
-                <div class="mechanic-card" onclick="showChatWithMechanic('Kovács János')">
-                    <div class="mechanic-avatar">👨‍🔧</div>
-                    <div class="mechanic-name">Kovács János</div>
-                    <div class="mechanic-category">🚰 Vízszerelő</div>
-                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (4.9)</div>
-                    <div class="mechanic-rate">6,000 Ft/óra</div>
-                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
-                </div>
-                <div class="mechanic-card" onclick="showChatWithMechanic('Nagy Péter')">
-                    <div class="mechanic-avatar">👨‍🔧</div>
-                    <div class="mechanic-name">Nagy Péter</div>
-                    <div class="mechanic-category">⚡ Villanyszerelő</div>
-                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (5.0)</div>
-                    <div class="mechanic-rate">7,500 Ft/óra</div>
-                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
-                </div>
-                <div class="mechanic-card" onclick="showChatWithMechanic('Szabó István')">
-                    <div class="mechanic-avatar">👨‍🔧</div>
-                    <div class="mechanic-name">Szabó István</div>
-                    <div class="mechanic-category">❄️ Klíma szerelő</div>
-                    <div class="mechanic-rating">⭐⭐⭐⭐ (4.7)</div>
-                    <div class="mechanic-rate">8,000 Ft/óra</div>
-                    <div style="text-align: center;"><span class="mechanic-status offline">Offline</span></div>
-                </div>
-                <div class="mechanic-card" onclick="showChatWithMechanic('Tóth András')">
-                    <div class="mechanic-avatar">👨‍🔧</div>
-                    <div class="mechanic-name">Tóth András</div>
-                    <div class="mechanic-category">🔑 Lakatos</div>
-                    <div class="mechanic-rating">⭐⭐⭐⭐⭐ (4.8)</div>
-                    <div class="mechanic-rate">6,500 Ft/óra</div>
-                    <div style="text-align: center;"><span class="mechanic-status online">Elérhető</span></div>
-                </div>
+            <div class="loading" id="mechanicListLoading">
+                <div class="spinner"></div>
+                <p>Szerelők betöltése...</p>
+            </div>
+            <div class="mechanic-grid" id="mechanicGrid">
+                <!-- Dinamikusan töltődik fel -->
             </div>
         </div>
 
@@ -530,11 +503,14 @@
 
         <div id="my-orders" class="screen">
             <button class="back-btn" onclick="goHome()">← Vissza</button>
-            <div class="form-card" style="text-align: center;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
-                <h2>Megrendeléseim</h2>
-                <p style="color: #64748b; margin: 2rem 0;">Ez a funkció hamarosan elérhető lesz!</p>
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="font-size: 2.5rem; background: linear-gradient(135deg, var(--accent-gold), var(--accent-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Megrendeléseim</h1>
             </div>
+            <div class="loading" id="ordersLoading">
+                <div class="spinner"></div>
+                <p>Betöltés...</p>
+            </div>
+            <div id="ordersContainer" style="max-width: 900px; margin: 0 auto;"></div>
         </div>
 
         <div id="my-profile" class="screen">
@@ -965,9 +941,178 @@
             return div.innerHTML;
         }
 
-        function showChatWithMechanic(mechanicName) {
+        // ============ MECHANIC LIST FUNCTIONS ============
+        async function loadMechanics(category = null) {
+            const mechanicGrid = document.getElementById('mechanicGrid');
+            const loading = document.getElementById('mechanicListLoading');
+            
+            showLoading('mechanicListLoading', true);
+            mechanicGrid.innerHTML = '';
+            
+            try {
+                let url = '/api/mechanics';
+                if (category) {
+                    url += `?category=${category}&online=true`;
+                }
+                
+                const result = await apiCall(url, { method: 'GET' });
+                console.log('✅ Mechanics loaded:', result.mechanics);
+                
+                if (!result.mechanics || result.mechanics.length === 0) {
+                    mechanicGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">😔</div>
+                            <h2 style="color: var(--text-secondary); font-size: 1.5rem;">
+                                Jelenleg nincs elérhető szerelő${category ? ' ebben a kategóriában' : ''}
+                            </h2>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                result.mechanics.forEach(mechanic => {
+                    const card = createMechanicCard(mechanic);
+                    mechanicGrid.innerHTML += card;
+                });
+                
+            } catch (error) {
+                console.error('❌ Load mechanics error:', error);
+                mechanicGrid.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">⚠️</div>
+                        <h2 style="color: var(--text-secondary);">Hiba történt a szerelők betöltésekor</h2>
+                        <button class="submit-btn" style="max-width: 300px; margin: 2rem auto;" onclick="loadMechanics()">Újrapróbálás</button>
+                    </div>
+                `;
+            } finally {
+                showLoading('mechanicListLoading', false);
+            }
+        }
+
+        function createMechanicCard(mechanic) {
+            const categoryIcons = {
+                water: '🚰',
+                electric: '⚡',
+                heating: '❄️',
+                lock: '🔑'
+            };
+            
+            const categoryNames = {
+                water: 'Vízszerelő',
+                electric: 'Villanyszerelő',
+                heating: 'Klíma/Fűtés szerelő',
+                lock: 'Lakatos'
+            };
+            
+            const icon = categoryIcons[mechanic.categories?.[0]] || '🔧';
+            const categoryName = categoryNames[mechanic.categories?.[0]] || 'Szerelő';
+            const stars = '⭐'.repeat(Math.round(mechanic.rating || 5));
+            
+            return `
+                <div class="mechanic-card" onclick="startChatWithMechanic('${mechanic.id}', '${mechanic.name}')">
+                    <div class="mechanic-avatar">${mechanic.avatar || '👨‍🔧'}</div>
+                    <div class="mechanic-name">${mechanic.name}</div>
+                    <div class="mechanic-category">${icon} ${categoryName}</div>
+                    <div class="mechanic-rating">${stars} (${mechanic.rating || 5.0})</div>
+                    <div class="mechanic-rate">${(mechanic.hourlyRate || 0).toLocaleString()} Ft/óra</div>
+                    <div style="text-align: center;">
+                        <span class="mechanic-status ${mechanic.online ? 'online' : 'offline'}">
+                            ${mechanic.online ? 'Elérhető' : 'Offline'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startChatWithMechanic(mechanicId, mechanicName) {
+            currentChatMechanic = { id: mechanicId, name: mechanicName };
             document.getElementById('chat-mechanic-name').textContent = mechanicName;
             showScreen('chat');
+            loadChatMessages(mechanicId);
+        }
+
+        // ============ ORDERS FUNCTIONS ============
+        async function loadMyOrders() {
+            const container = document.getElementById('ordersContainer');
+            const loading = document.getElementById('ordersLoading');
+            
+            showLoading('ordersLoading', true);
+            container.innerHTML = '';
+            
+            try {
+                const result = await apiCall('/orders/my-orders', { method: 'GET' });
+                console.log('✅ Orders loaded:', result.orders);
+                
+                if (!result.orders || result.orders.length === 0) {
+                    container.innerHTML = `
+                        <div class="form-card" style="text-align: center;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">📋</div>
+                            <h2>Nincs még megrendelésed</h2>
+                            <p style="color: #64748b; margin: 2rem 0;">Kezdj el keresni szerelőket!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                result.orders.forEach(order => {
+                    container.innerHTML += createOrderCard(order);
+                });
+                
+            } catch (error) {
+                console.error('❌ Load orders error:', error);
+                container.innerHTML = `
+                    <div class="form-card" style="text-align: center;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">⚠️</div>
+                        <h2>Hiba történt</h2>
+                        <p style="color: #64748b; margin: 2rem 0;">${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                showLoading('ordersLoading', false);
+            }
+        }
+
+        function createOrderCard(order) {
+            const statusColors = {
+                pending: '#f59e0b',
+                accepted: '#3b82f6',
+                completed: '#10b981',
+                cancelled: '#ef4444'
+            };
+            
+            const statusNames = {
+                pending: 'Várakozik',
+                accepted: 'Elfogadva',
+                completed: 'Befejezve',
+                cancelled: 'Törölve'
+            };
+            
+            return `
+                <div class="form-card" style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="color: var(--text-dark); font-size: 1.25rem; margin-bottom: 0.5rem;">
+                                ${order.orderId || order._id}
+                            </h3>
+                            <p style="color: #64748b;">${order.description || 'Nincs leírás'}</p>
+                        </div>
+                        <span style="background: ${statusColors[order.status]}; color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600;">
+                            ${statusNames[order.status] || order.status}
+                        </span>
+                    </div>
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 1rem; display: grid; gap: 0.5rem;">
+                        <p style="color: #64748b;"><strong>Kategória:</strong> ${order.category || 'N/A'}</p>
+                        ${order.mechanicName ? `<p style="color: #64748b;"><strong>Szerelő:</strong> ${order.mechanicName}</p>` : ''}
+                        <p style="color: #64748b;"><strong>Dátum:</strong> ${new Date(order.createdAt).toLocaleDateString('hu-HU')}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Dashboard kártyák kattintáskor betöltés
+        function showMyOrders() {
+            showScreen('my-orders');
+            loadMyOrders();
         }
 
         if (authToken && currentUser) {
