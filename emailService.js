@@ -1,122 +1,166 @@
-// emailService.js - SendGrid Email Service
-const sgMail = require('@sendgrid/mail');
-
-// Tisztítás: CR/LF/TAB karakterek eltávolítása
-function cleanApiKey(key) {
-  if (!key) return key;
-  const cleaned = key.replace(/[\r\n\t]/g, '');
-  if (cleaned !== key) {
-    console.warn('⚠️ SENDGRID_API_KEY tartalmazott vezérlőkaraktert (CR/LF/TAB). Tisztítva lett.');
-  }
-  return cleaned;
-}
-
-const apiKey = cleanApiKey(process.env.SENDGRID_API_KEY);
-sgMail.setApiKey(apiKey);
-
-const FROM_EMAIL = process.env.FROM_EMAIL || 'support@otthonfix.com';
+// services/emailService.js
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@otthonfix.com';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-console.log('📧 Email Service initialized (SendGrid REST API)');
-console.log(` From: ${FROM_EMAIL}`);
-console.log(` Base URL: ${BASE_URL}`);
+const categoryNames = { water: 'Vízszerelés', electric: 'Villanyszerelés', heating: 'Fűtésszerelés', locksmith: 'Zárcsere' };
+const categoryIcons = { water: '💧', electric: '⚡', heating: '🔥', locksmith: '🔐' };
 
-// Test email
-async function sendTest(toEmail) {
-  try {
-    const msg = {
-      to: toEmail,
-      from: FROM_EMAIL,
-      subject: 'OtthonFix - Teszt Email',
-      text: 'Ez egy teszt email az OtthonFix platformról.',
-      html: '<strong>Ez egy teszt email az OtthonFix platformról.</strong>',
-    };
-
-    await sgMail.send(msg);
-    return { success: true, message: 'Email sikeresen elküldve' };
-  } catch (error) {
-    console.error('Email küldési hiba:', error);
-    return { success: false, error: error.message };
+async function sendEmail({ to, subject, html, text }) {
+  if (!SENDGRID_API_KEY) {
+    console.log('⚠️ SENDGRID_API_KEY nincs beállítva, email nem küldve');
+    return { success: false, error: 'API key hiányzik' };
   }
-}
 
-// Registration confirmation
-async function sendRegistrationConfirmation(user) {
   try {
-    const activationUrl = `${BASE_URL}/api/auth/activate/${user.activationToken}`;
-    
-    const msg = {
-      to: user.email,
-      from: FROM_EMAIL,
-      subject: 'OtthonFix - Regisztráció megerősítése',
-      text: `Üdvözlünk az OtthonFix platformon!\n\nKattints a linkre a fiók aktiválásához: ${activationUrl}`,
-      html: `
-        <h2>Üdvözlünk az OtthonFix platformon!</h2>
-        <p>Szia ${user.name}!</p>
-        <p>Köszönjük a regisztrációt. Kattints az alábbi linkre a fiókod aktiválásához:</p>
-        <a href="${activationUrl}" style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; display: inline-block;">Fiók aktiválása</a>
-        <p>Vagy másold be ezt a linket a böngésződbe:</p>
-        <p>${activationUrl}</p>
-        <br>
-        <p>Üdvözlettel,<br>Az OtthonFix csapata</p>
-      `,
-    };
-
-    await sgMail.send(msg);
-    return { success: true };
-  } catch (error) {
-    console.error('Registration email hiba:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Order confirmation
-async function sendOrderConfirmation(order, mechanic) {
-  try {
-    const msg = {
-      to: order.customerEmail,
-      from: FROM_EMAIL,
-      subject: 'OtthonFix - Megrendelés visszaigazolás',
-      text: `A megrendelésed visszaigazolva!\n\nSzerelő: ${mechanic.name}\nKategória: ${order.category}\nBecsült érkezés: ${order.estimatedArrival}`,
-      html: `
-        <h2>Megrendelésed visszaigazolva!</h2>
-        <p>Szia ${order.customerName}!</p>
-        <p><strong>Szerelő:</strong> ${mechanic.name}</p>
-        <p><strong>Kategória:</strong> ${order.category}</p>
-        <p><strong>Becsült érkezés:</strong> ${order.estimatedArrival}</p>
-        <p><strong>Megrendelés ID:</strong> ${order.orderId}</p>
-        <br>
-        <p>Üdvözlettel,<br>Az OtthonFix csapata</p>
-      `,
-    };
-
-    await sgMail.send(msg);
-    return { success: true };
-  } catch (error) {
-    console.error('Order email hiba:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Verify connection
-async function verifyConnection() {
-  try {
-    await sgMail.send({
-      to: FROM_EMAIL,
-      from: FROM_EMAIL,
-      subject: 'SendGrid Connection Test',
-      text: 'Connection OK',
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: SUPPORT_EMAIL, name: 'OtthonFix' },
+        subject,
+        content: [
+          { type: 'text/plain', value: text || subject },
+          { type: 'text/html', value: html }
+        ]
+      })
     });
-    return true;
+
+    if (response.ok || response.status === 202) {
+      console.log(`✅ Email elküldve: ${to}`);
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      console.error(`❌ SendGrid hiba:`, errorText);
+      return { success: false, error: errorText };
+    }
   } catch (error) {
-    console.error('SendGrid connection failed:', error);
-    return false;
+    console.error('❌ Email hiba:', error.message);
+    return { success: false, error: error.message };
   }
 }
 
-module.exports = {
-  sendTest,
-  sendRegistrationConfirmation,
-  sendOrderConfirmation,
-  verifyConnection
-};
+async function sendNewJobNotification(mechanic, job) {
+  const catName = categoryNames[job.category] || job.category;
+  const catIcon = categoryIcons[job.category] || '🔧';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:linear-gradient(135deg,#f97316,#ea580c);border-radius:16px 16px 0 0;padding:32px;text-align:center;">
+      <h1 style="color:white;margin:0;font-size:24px;font-weight:700;">🔔 Új Munka Érkezett!</h1>
+    </div>
+    <div style="background:white;padding:32px;border-radius:0 0 16px 16px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+      <p style="font-size:16px;color:#1f2937;margin-bottom:24px;">Kedves <strong>${mechanic.name}</strong>,</p>
+      <div style="background:#fef7ed;border:1px solid #fed7aa;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <div style="font-size:20px;margin-bottom:12px;">${catIcon} <strong style="color:#ea580c;">${catName}</strong></div>
+        <div style="color:#6b7280;margin-bottom:8px;">📍 <strong>Helyszín:</strong> ${job.district}, ${job.street}${job.houseNumber ? ' ' + job.houseNumber : ''}</div>
+        <div style="color:#374151;margin-top:12px;"><strong>Leírás:</strong><br>${job.description}</div>
+      </div>
+      <div style="text-align:center;">
+        <a href="${BASE_URL}" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:16px;">Munka megtekintése</a>
+      </div>
+      <p style="color:#9ca3af;font-size:14px;text-align:center;margin-top:24px;">Gyors válaszadással növelheted az esélyeidet!</p>
+    </div>
+    <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:20px;">OtthonFix - Budapesti Szerelő Platform</p>
+  </div>
+</body>
+</html>`;
+
+  return sendEmail({
+    to: mechanic.email,
+    subject: `🔔 Új ${catName} munka: ${job.district}`,
+    html,
+    text: `Új munka: ${catName} - ${job.district}, ${job.street}`
+  });
+}
+
+async function sendJobAcceptedNotification(job, mechanic) {
+  const catName = categoryNames[job.category] || job.category;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:16px 16px 0 0;padding:32px;text-align:center;">
+      <h1 style="color:white;margin:0;font-size:24px;font-weight:700;">✅ Szerelő Jelentkezett!</h1>
+    </div>
+    <div style="background:white;padding:32px;border-radius:0 0 16px 16px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+      <p style="font-size:16px;color:#1f2937;margin-bottom:24px;">Kedves <strong>${job.clientName}</strong>,</p>
+      <p style="color:#4b5563;margin-bottom:24px;"><strong>${mechanic.name}</strong> elfogadta a munkádat!</p>
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <div style="font-weight:600;font-size:18px;color:#1f2937;margin-bottom:12px;">${mechanic.name}</div>
+        <div style="color:#6b7280;">⭐ ${mechanic.rating?.toFixed(1) || '5.0'} (${mechanic.reviews || 0} értékelés)</div>
+        <div style="margin-top:12px;">
+          <div>📞 <a href="tel:${mechanic.phone}" style="color:#2563eb;">${mechanic.phone}</a></div>
+          <div>✉️ <a href="mailto:${mechanic.email}" style="color:#2563eb;">${mechanic.email}</a></div>
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <a href="${BASE_URL}" style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Munka követése</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return sendEmail({
+    to: job.clientEmail,
+    subject: `✅ ${mechanic.name} elfogadta a munkádat!`,
+    html,
+    text: `${mechanic.name} elfogadta a munkádat. Telefon: ${mechanic.phone}`
+  });
+}
+
+async function sendRegistrationConfirmation(user) {
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:linear-gradient(135deg,#f97316,#2563eb);border-radius:16px 16px 0 0;padding:32px;text-align:center;">
+      <h1 style="color:white;margin:0;">🎉 Üdvözlünk az OtthonFix-nél!</h1>
+    </div>
+    <div style="background:white;padding:32px;border-radius:0 0 16px 16px;">
+      <p style="font-size:16px;color:#1f2937;">Kedves <strong>${user.name}</strong>,</p>
+      <p style="color:#4b5563;">Sikeresen regisztráltál az OtthonFix platformra!</p>
+      <div style="text-align:center;margin-top:24px;">
+        <a href="${BASE_URL}" style="display:inline-block;background:linear-gradient(135deg,#f97316,#ea580c);color:white;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Kezdjük el!</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return sendEmail({
+    to: user.email,
+    subject: '🎉 Üdvözlünk az OtthonFix-nél!',
+    html,
+    text: `Kedves ${user.name}! Sikeresen regisztráltál.`
+  });
+}
+
+async function sendTest(email) {
+  return sendEmail({
+    to: email,
+    subject: '✅ OtthonFix Teszt Email',
+    html: `<div style="font-family:sans-serif;padding:20px;"><h1 style="color:#f97316;">🔧 OtthonFix</h1><p>Teszt email - működik! ✅</p></div>`,
+    text: 'OtthonFix teszt - működik!'
+  });
+}
+
+async function verifyConnection() {
+  return !!SENDGRID_API_KEY;
+}
+
+module.exports = { sendEmail, sendNewJobNotification, sendJobAcceptedNotification, sendRegistrationConfirmation, sendTest, verifyConnection };
